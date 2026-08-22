@@ -1,0 +1,414 @@
+{
+  "updated": "2026-08-22T01:37:24.442Z",
+  "round": 4.5,
+  "fps": 335,
+  "status": "Confirmation pass: all four provisional wins (vista, combat, ring, grace) LOST against neutral wording and stronger reference frames — the board is honest now: 1 win (fps). Every critic named the same fundamentals: no contact shadows/AO, flat untextured ground, and lights that do not light characters or terrain. A rendering-foundations builder is fixing those globally while round 4 (character, architecture, bosses, Nightlord, Roundtable Hold, Nightfarers) finishes.",
+  "pieces": [
+    {
+      "id": "vista",
+      "name": "Vista & atmosphere",
+      "status": "lost",
+      "rounds": 5,
+      "ours": "critic/vista/r4.5/ours.png",
+      "bar": "reference/ashen/steam_04.jpg",
+      "barLabel": "Ashen",
+      "verdict": "Round 4.5: critic picked the bar (leaning). B's framing arch of the giant root, the path leading through the character to the distant waterfall and ruins, and its restrained dark-blue-and-gold palette read as one deliberate, signature art direction rather than an assembled scene.",
+      "gap": "A's entire bottom third is a carpet of identical grass-tuft sprites at one scale, one hue and one density, spread edge-to-edge with no clumping, no worn path toward the lit castle, and no response to the moon light (tufts under the tree and in the ground's dark patches are exactly as bright as tufts in the open), so the foreground reads as a scattered asset layer sitting on a flat plane rather than terrain, and it drags the whole frame toward 'low-poly asset pack' even though the fog tiers and warm castle focal point behind it are doing real work. — fix: Drive the grass through a noise-based density and scale mask (0.6x-1.4x, 30-40% coverage instead of 100%), thin it to near-zero along a trodden path from the character toward the castle, tint the tufts by the terrain's lighting so they darken under the tree and in shadow patches and pick up a slight cool rim on the moon-facing side, and scatter a few larger grass/heather clumps and small rocks to break the uniform height line.",
+      "lastGap": "A's entire bottom third is a carpet of identical grass-tuft sprites at one scale, one hue and one density, spread edge-to-edge with no clumping, no worn path toward the lit castle, and no response to the moon light (tufts under the tree and in the ground's dark patches are exactly as bright as tufts in the open), so the foreground reads as a scattered asset layer sitting on a flat plane rather than terrain, and it drags the whole frame toward 'low-poly asset pack' even though the fog tiers and warm castle focal point behind it are doing real work.",
+      "lastFix": "Drive the grass through a noise-based density and scale mask (0.6x-1.4x, 30-40% coverage instead of 100%), thin it to near-zero along a trodden path from the character toward the castle, tint the tufts by the terrain's lighting so they darken under the tree and in shadow patches and pick up a slight cool rim on the moon-facing side, and scatter a few larger grass/heather clumps and small rocks to break the uniform height line."
+    },
+    {
+      "id": "character",
+      "name": "Character & animation",
+      "status": "lost",
+      "rounds": 3,
+      "ours": "critic/character/r3/ours.png",
+      "bar": "reference/ashen/steam_08.jpg",
+      "barLabel": "Ashen",
+      "verdict": "Round 3: critic picked the bar (sure). A's hero is genuinely sculpted (layered collar, belt, satchel, wrapped boots, real taper through the limbs) and shares the cave's soft bounced light and a true contact shadow on the rock, so it reads as one coherent art direction rather than a figure composited onto a scene.",
+      "gap": "B's character is lit flat and front-on even though the moon sits directly behind it at top-centre: the blue tunic and hood are a single uniform value with no gradient, no rim/edge light on the shoulders or hood, and no occlusion where cloak, belt and pouches meet the body. Combined with constant-diameter tube limbs ending in a yellow sphere hand and capsule boots, the hero reads as unshaded primitives pasted over the backdrop rather than a sculpted figure sitting in that fog. — fix: Key the character shader to the scene light: add a cool white-blue rim/backlight aligned to the moon direction (fresnel-driven, roughly 1.5x key intensity) so hood, shoulders and cloak edge catch a bright outline against the fog, drop the camera-facing fill by about 30 percent so the back of the torso falls into a soft gradient, and bake a light AO gradient at hood/cloak/belt junctions; while in the model, taper forearm-to-wrist and calf-to-ankle and replace the sphere hand with a wedge mitt.",
+      "lastGap": "B's character is lit flat and front-on even though the moon sits directly behind it at top-centre: the blue tunic and hood are a single uniform value with no gradient, no rim/edge light on the shoulders or hood, and no occlusion where cloak, belt and pouches meet the body. Combined with constant-diameter tube limbs ending in a yellow sphere hand and capsule boots, the hero reads as unshaded primitives pasted over the backdrop rather than a sculpted figure sitting in that fog.",
+      "lastFix": "Key the character shader to the scene light: add a cool white-blue rim/backlight aligned to the moon direction (fresnel-driven, roughly 1.5x key intensity) so hood, shoulders and cloak edge catch a bright outline against the fog, drop the camera-facing fill by about 30 percent so the back of the torso falls into a soft gradient, and bake a light AO gradient at hood/cloak/belt junctions; while in the model, taper forearm-to-wrist and calf-to-ankle and replace the sphere hand with a wedge mitt."
+    },
+    {
+      "id": "combat",
+      "name": "Combat feel",
+      "status": "lost",
+      "rounds": 4,
+      "ours": "critic/combat/r4.5/ours.png",
+      "bar": "reference/ashen/steam_09.jpg",
+      "barLabel": "Ashen",
+      "verdict": "Round 4.5: critic picked the bar (sure). A is a fully coherent hand-painted art direction: one warm terracotta palette across architecture, props and characters, consistent stylized material language, and a clean diagonal composition (airborne enemy upper-left vs. grounded axe-wielder lower-right) with both silhouettes separated from the background and grounded by contact shadows.",
+      "gap": "B's environment reads as untextured blockout: the ground is a single flat dirt-coloured plane whose only value variation is the campfire's radial glow, littered with flat dark polygon \"debris\" that has no shading or AO, and the tents behind are flat-shaded boxes with hairline guy-ropes. Neither fighter casts a readable contact shadow (only dust puffs), so both characters float on a greybox rather than standing in a world, and the tents' scale relative to the figures is unanchored. — fix: Replace the flat ground plane with a splat-mapped trampled-dirt/gravel/grass material (albedo + normal, 2-3 vertex-painted layers with darkening under the fire and near tent edges), swap the scattered flat polygons for a handful of real props (rocks, a log, grass-tuft decals) with baked AO, and add soft capsule/blob contact shadows under both fighters so they sit on the surface.",
+      "lastGap": "B's environment reads as untextured blockout: the ground is a single flat dirt-coloured plane whose only value variation is the campfire's radial glow, littered with flat dark polygon \"debris\" that has no shading or AO, and the tents behind are flat-shaded boxes with hairline guy-ropes. Neither fighter casts a readable contact shadow (only dust puffs), so both characters float on a greybox rather than standing in a world, and the tents' scale relative to the figures is unanchored.",
+      "lastFix": "Replace the flat ground plane with a splat-mapped trampled-dirt/gravel/grass material (albedo + normal, 2-3 vertex-painted layers with darkening under the fire and near tent edges), swap the scattered flat polygons for a handful of real props (rocks, a log, grass-tuft decals) with baked AO, and add soft capsule/blob contact shadows under both fighters so they sit on the surface."
+    },
+    {
+      "id": "architecture",
+      "name": "Churches, forts & ruins",
+      "status": "lost",
+      "rounds": 2,
+      "ours": "critic/architecture/r3/ours.png",
+      "bar": "reference/ashen/steam_03.jpg",
+      "barLabel": "Ashen",
+      "verdict": "Round 3: critic picked the bar (sure). B wins on lighting doing the work — volumetric god rays, warm bounce in recesses, a value ramp from dark foreground floor to bright far arch, and recesses that read as real depth — giving scale and material credibility that A's flat per-facet shading never reaches; note B is off-brief (intact palace corridor, no ruin, no fog, no hill), but its craft lead is decisive.",
+      "gap": "A has no ambient occlusion or contact shadowing anywhere: every facet is one flat value (lit or unlit) and the buttresses, broken-wall fragments and gravestones meet a single flat olive ground plane with zero darkening at the base, so the masses float and read as extruded boxes dropped on a plane rather than masonry rooted in a hill — exactly the \"boxes\" the brief warns against. — fix: Do a grounding pass: enable SSAO (or bake AO into vertex colours) and add a vertex-colour \"foundation band\" that darkens the bottom ~1 m of every wall, buttress and gravestone mesh, then lay a lighter trodden-dirt decal/ground band from the gate to the church door so the ground has at least two values and the church visibly sits in the terrain.",
+      "lastGap": "A has no ambient occlusion or contact shadowing anywhere: every facet is one flat value (lit or unlit) and the buttresses, broken-wall fragments and gravestones meet a single flat olive ground plane with zero darkening at the base, so the masses float and read as extruded boxes dropped on a plane rather than masonry rooted in a hill — exactly the \"boxes\" the brief warns against.",
+      "lastFix": "Do a grounding pass: enable SSAO (or bake AO into vertex colours) and add a vertex-colour \"foundation band\" that darkens the bottom ~1 m of every wall, buttress and gravestone mesh, then lay a lighter trodden-dirt decal/ground band from the gate to the church door so the ground has at least two values and the church visibly sits in the terrain."
+    },
+    {
+      "id": "grace",
+      "name": "Sites of Grace & loot",
+      "status": "lost",
+      "rounds": 2,
+      "ours": "critic/grace/r4.5/ours.png",
+      "bar": "reference/nightreign/frames/t_008.jpg",
+      "barLabel": "Nightreign",
+      "verdict": "Round 4.5: critic picked the bar (sure). B's grace, fog, bounce and surface specular all obey one lighting model, so the gold column reads as an object sitting in a real room with depth and scale instead of an effect pasted over the scene.",
+      "gap": "In A the grace paints a saturated orange pool on the ground but the player standing inside that pool receives almost none of it: the cape stays flat, unlit navy with no warm wrap or rim on the side facing the pillar, there is no cast shadow stretching toward the camera and no contact darkening under the feet, so the character reads as a sprite layered over a glow decal rather than a body standing in the light. The low-poly terrain faceting compounds it, but the light/character disconnect is the failure specific to this piece. — fix: Replace the ground-glow decal with a real shadow-casting warm point light at the pillar base (roughly #FFB95A, ~8m range, inverse-square falloff, shadow map on) so the player casts a long shadow toward the camera and gets a warm rim along the cape edges and pauldrons; add a soft AO/contact blob under the feet and let the same light drive a mild normal response on the terrain so the facets catch it unevenly instead of one flat orange wash.",
+      "lastGap": "In A the grace paints a saturated orange pool on the ground but the player standing inside that pool receives almost none of it: the cape stays flat, unlit navy with no warm wrap or rim on the side facing the pillar, there is no cast shadow stretching toward the camera and no contact darkening under the feet, so the character reads as a sprite layered over a glow decal rather than a body standing in the light. The low-poly terrain faceting compounds it, but the light/character disconnect is the failure specific to this piece.",
+      "lastFix": "Replace the ground-glow decal with a real shadow-casting warm point light at the pillar base (roughly #FFB95A, ~8m range, inverse-square falloff, shadow map on) so the player casts a long shadow toward the camera and gets a warm rim along the cape edges and pauldrons; add a soft AO/contact blob under the feet and let the same light drive a mild normal response on the terrain so the facets catch it unevenly instead of one flat orange wash."
+    },
+    {
+      "id": "ring",
+      "name": "Night ring & three-day run",
+      "status": "lost",
+      "rounds": 4,
+      "ours": "critic/ring/r4.5/ours.png",
+      "bar": "reference/nightreign/steam_03.jpg",
+      "barLabel": "Nightreign",
+      "verdict": "Round 4.5: critic picked the bar (sure). A's boundary actually participates in the scene's lighting: grass blades catch the glow, trees carry blue rim light, bounce fills the midground and volumetric haze softens the edge, so the wall feels physically present rather than composited.",
+      "gap": "B's boundary wall is a flat additive blue card that has no lighting relationship with the world in front of it: the ground stays one uniform olive flat-shade, the grey rocks at the wall's base pick up zero blue tint, the character has no blue rim and no contact shadow, and the right-hand tree is pure unlit black. The wall therefore reads as a 2D backdrop pasted behind the geometry rather than a volumetric energy wall standing in the same scene, and the hard horizontal seam where the card meets the terrain is fully exposed. — fix: Make the ring emit light: place a chain of blue point/area lights along the inner edge of the wall (or a single wide directional fill aimed inward) with falloff over roughly 30-40m so rocks, terrain facets and the character's back/shoulder rim visibly take blue, then add a low height-based blue ground-fog band (2-3m tall) at the wall's base so the terrain fades into the wall instead of meeting it at a hard seam, and drop a soft blob/contact shadow under the character so it grounds.",
+      "lastGap": "B's boundary wall is a flat additive blue card that has no lighting relationship with the world in front of it: the ground stays one uniform olive flat-shade, the grey rocks at the wall's base pick up zero blue tint, the character has no blue rim and no contact shadow, and the right-hand tree is pure unlit black. The wall therefore reads as a 2D backdrop pasted behind the geometry rather than a volumetric energy wall standing in the same scene, and the hard horizontal seam where the card meets the terrain is fully exposed.",
+      "lastFix": "Make the ring emit light: place a chain of blue point/area lights along the inner edge of the wall (or a single wide directional fill aimed inward) with falloff over roughly 30-40m so rocks, terrain facets and the character's back/shoulder rim visibly take blue, then add a low height-based blue ground-fog band (2-3m tall) at the wall's base so the terrain fades into the wall instead of meeting it at a hard seam, and drop a soft blob/contact shadow under the character so it grounds."
+    },
+    {
+      "id": "bosses",
+      "name": "Field bosses (day 1 & 2)",
+      "status": "lost",
+      "rounds": 2,
+      "ours": "critic/bosses/r3/ours.png",
+      "bar": "reference/nightreign/steam_05.jpg",
+      "barLabel": "Nightreign",
+      "verdict": "Round 3: critic picked the bar (sure). A has fully resolved materials and a single unified lighting scheme (warm fire key against cool blue-grey sky) that lights every character, the shattered stone slabs and the airborne debris identically, so the whole frame reads as one coherent world rather than assets dropped onto a plane.",
+      "gap": "The boss in B is an illegible lump: mount body, neck, head and rider torso are all the same near-black boxy mass with no value separation, so the horse and knight merge into one blob and the only thing that reads is the halberd sticking out of it. The silhouette is supposed to sell the threat, and here it sells a stack of crates with a flat red rectangle hung off the side; the player's chibi figure in front reads more clearly than the boss does. — fix: Rebuild the mount/rider as two opposed shapes with a hard value split: make the horse a long, low, near-black horizontal mass with a clearly extended neck and head (ears, muzzle) projecting forward past the rider and four separated legs in a wide stance; make the rider a pale steel-grey vertical form with a tall crested helm sitting on top of it; then add a cool moon rim-light along the top-right edge of both so the outline is carved against the sky. One dark horizontal + one light vertical gives an instantly readable \"mounted knight\" silhouette at any distance.",
+      "lastGap": "The boss in B is an illegible lump: mount body, neck, head and rider torso are all the same near-black boxy mass with no value separation, so the horse and knight merge into one blob and the only thing that reads is the halberd sticking out of it. The silhouette is supposed to sell the threat, and here it sells a stack of crates with a flat red rectangle hung off the side; the player's chibi figure in front reads more clearly than the boss does.",
+      "lastFix": "Rebuild the mount/rider as two opposed shapes with a hard value split: make the horse a long, low, near-black horizontal mass with a clearly extended neck and head (ears, muzzle) projecting forward past the rider and four separated legs in a wide stance; make the rider a pale steel-grey vertical form with a tall crested helm sitting on top of it; then add a cool moon rim-light along the top-right edge of both so the outline is carved against the sky. One dark horizontal + one light vertical gives an instantly readable \"mounted knight\" silhouette at any distance."
+    },
+    {
+      "id": "nightlord",
+      "name": "Nightlord (night 3)",
+      "status": "queued",
+      "rounds": 0,
+      "ours": "shots/boss.png",
+      "bar": "reference/nightreign/hud/gameplay_2040_07.jpg",
+      "barLabel": "Nightreign"
+    },
+    {
+      "id": "hud",
+      "name": "HUD & menus",
+      "status": "lost",
+      "rounds": 4,
+      "ours": "critic/hud/r3.5/ours.png",
+      "bar": "reference/nightreign/hud/gameplay_2040_08.jpg",
+      "barLabel": "Nightreign",
+      "verdict": "Round 3.5: critic picked the bar (sure). A holds a coherent, consistently shaded night scene where the three-headed boss silhouettes cleanly against the sky, the player's long cast shadow grounds him on ground with real value variation, and the fire trail provides a single focal accent under a restrained, aligned HUD.",
+      "gap": "Upper-right quadrant blown out to flat white by an off-screen light bloom (erases the sky gradient and the right pillar/torch); the boss under the HUD is a jumble of boxes. Fix: raise the bloom threshold / cap intensity or keep the off-screen glow out of the frustum; the boss rebuild is in progress.",
+      "lastGap": "The entire upper-right quadrant of B is blown out to flat white by an off-screen light bloom: it erases the sky gradient, swallows the right-hand pillar and torch, and collapses the night scene's value range so the frame reads as a post-process bug rather than a lit environment (compounded by a boss that is a jumble of disconnected boxes with no readable silhouette).",
+      "lastFix": "Raise the bloom threshold and cap its intensity (or move the off-screen sun/moon disc and its volumetric glow fully out of the camera frustum) so the top-right sky holds the same navy value as the top-left; the moon already in frame should be the only bright sky source."
+    },
+    {
+      "id": "hub",
+      "name": "Roundtable Hold & relics",
+      "status": "queued",
+      "rounds": 0,
+      "ours": "shots/hub.png",
+      "bar": "reference/nightreign/steam_09.jpg",
+      "barLabel": "Nightreign"
+    },
+    {
+      "id": "nightfarers",
+      "name": "Eight Nightfarers",
+      "status": "queued",
+      "rounds": 0,
+      "ours": "",
+      "bar": "reference/nightreign/frames/t_095.jpg",
+      "barLabel": "Nightreign"
+    },
+    {
+      "id": "shifting",
+      "name": "Shifting Earth",
+      "status": "queued",
+      "rounds": 0,
+      "ours": "",
+      "bar": "reference/nightreign/steam_06.jpg",
+      "barLabel": "Nightreign"
+    },
+    {
+      "id": "perf",
+      "name": "60 fps at 1080p",
+      "status": "won",
+      "rounds": 1,
+      "metric": "335 fps uncapped (headed Chromium, M-series GPU)",
+      "ours": "",
+      "bar": "",
+      "barLabel": "Chrome",
+      "verdict": "Measured 338 fps (vista) / 335 fps (combat) at 1920×1080 with vsync disabled — 5× the 60 fps target."
+    },
+    {
+      "id": "audio",
+      "name": "Sound",
+      "status": "queued",
+      "rounds": 0,
+      "ours": "",
+      "bar": "",
+      "barLabel": "Ashen"
+    }
+  ],
+  "log": [
+    {
+      "t": "2026-08-21T18:52:00Z",
+      "msg": "Project scaffolded: three 0.185, vite, playwright. Architecture contract written."
+    },
+    {
+      "t": "2026-08-21T18:58:00Z",
+      "msg": "Bar captured: Ashen launch trailer (48 frames) and Nightreign overview trailer (122 frames)."
+    },
+    {
+      "t": "2026-08-21T19:02:00Z",
+      "msg": "Vertical-slice builder started: engine, terrain, player, combat, ring, grace, HUD, screenshot tool."
+    },
+    {
+      "t": "2026-08-21T16:55:58.625Z",
+      "msg": "Vertical slice complete: 33 modules, ~4,000 lines, full three-day loop playable, zero console errors. Baseline captures taken for every pose."
+    },
+    {
+      "t": "2026-08-21T16:57:21.191Z",
+      "msg": "Perf probe: 338/335 fps uncapped at 1080p in headed Chromium (real GPU). Target is 60."
+    },
+    {
+      "t": "2026-08-21T17:35:17.278Z",
+      "msg": "Vista & atmosphere: round 1 — OURS WON blind (sure)."
+    },
+    {
+      "t": "2026-08-21T17:35:17.278Z",
+      "msg": "Vista & atmosphere: builder — Rebuilt the vista's atmosphere and world: a global height+distance fog (three's fog chunks overridden once, colour matched to a pale slate horizon and brightening toward the moon) gives distinct receding value bands over a reshaped terrain (overlook knoll, misty valley, ridge-top Overlook Ruins with two braziers at 200 m, far-shore hills, two-band jagged rim, plus a fogged backdrop ring of peaks), with a large limb-darkened moon, sparse stars and cloud streaks in the sky. New silhouette props (hero trees framing the shot, standing stones, ruin fragments, braziers), knee-high tan two-sided grass lit like the ground, baked moon-facing facet shading, a one-draw-call additive glow mesh for every fire/grace (the warm accent), and a mild lift/desaturate grade; palette desaturated to olive/slate. All poses capture with zero console errors, smoke test 27/27; noted in CHANGELOG that run/Ring.js's unfogged wall draws a violet line across the distant mountains in the vista."
+    },
+    {
+      "t": "2026-08-21T17:35:17.278Z",
+      "msg": "Character & animation: round 1 — bar won (sure). Gap: B's extremities are unmodified primitives: the boots are flat-ended rectangular boxes, the forearms are capped cylinders, and the legs are rigid tapered sticks with no knee or ankle bend, so the run pose reads as blocks rotated around pivots rather than a sculpted figure with articulated weight (the sword hand floats beside the hilt and the ground shadow is a smeared dark blob rather than a contact shadow, compounding the \"glued primitives\" read)."
+    },
+    {
+      "t": "2026-08-21T17:35:17.278Z",
+      "msg": "Character & animation: builder — Rebuilt the player rig in src/entity/Humanoid.js as a designed hero instead of glued primitives: blended-weight tapered limbs with ankle bones (smooth joints, toe-off on the trailing foot), tunic/belt/pouch/strap, a two-layer jagged leather mantle, hood with drooping peak over a smooth faceless head, wedge boots, skin hands, and a cloak + Wylder's palette-red scarf merged into one swaying mesh (speed-driven lift, irregular facet folds, torn hem, own depth material so the shadow sways). Added a matte character lighting hook (cool fresnel rim + sky fill + key-light wrap) so the backlit figure reads against the mist, a fog-aware contact-shadow blob laid onto the terrain normal, a re-timed run cycle with whole-body lean/counter-rotation, deterministic settle() snapping for poses, and an over-the-shoulder camera offset in Camera.js; Player.js now always equips hood+cloak+scarf and grounds the shadow on teleport/update."
+    },
+    {
+      "t": "2026-08-21T17:35:17.278Z",
+      "msg": "Combat feel: round 1 — bar won (sure). Gap: B's arena is unbroken greybox: the ground is a single untextured olive plane with no albedo breakup, scatter, footprints or contact shadows under any of the four combatants, and the tents, crates and stakes are flat-shaded single-colour black primitives, so the fight floats on a prototype stage rather than in a camp. Compounding it, the struck enemy is a pale grey figure placed directly in front of the campfire bloom with a white burst on top, so its silhouette and recoil dissolve and the hit reads as a flash on the background, not a body taking damage."
+    },
+    {
+      "t": "2026-08-21T17:35:17.278Z",
+      "msg": "Combat feel: builder — Rebuilt the combat piece end to end: new stylized FX stack (src/combat/Fx.js velocity-stretched spark streaks + white core + expanding ring + soft dust puffs, a shared impact PointLight pulse, src/combat/Trail.js GPU-faded blade-trail ribbons auto-attached to any bladed attacker) wired into a rewritten Combat.js, plus designed enemies: an armoured rig builder (EnemyRig.js: layered pauldrons, breastplate ridge, tassets, tabard, crested kettle hat / great helm with plume, greaves, emblem shield, cape, blade in its own emissive group), a new Fell Knight enemy with a slow heated-blade heavy telegraph, re-skinned Soldier/boss, and a hunched spine-ridged Wolf. The `combat` pose now lives in src/combat/Pose.js (Debug.js delegates in one line): player mid greatsword swing with a baked trail arc into a recoiling shield soldier (sparks, ring, flash, knockback dust), a Knight winding up at right, a crouched Wolf at left, all backlit by the camp fire; smoke test 27/27, zero console errors."
+    },
+    {
+      "t": "2026-08-21T17:35:17.278Z",
+      "msg": "Night ring & three-day run: round 1 — bar won (sure). Gap: B's ground is a single flat navy value with no texture, no fog, and no lighting response, and the rain wall terminates on it as a hard, dead-straight horizontal line with no emissive rim or ground tint gradient; the result reads as a vertical rain-texture billboard standing on a tabletop, not a weather front rolling across terrain. Nothing in the scene is lit by the wall (the character's cape, sword, and cast shadow show zero blue-violet rim or bounce), so the threat is pasted behind the world instead of existing in it."
+    },
+    {
+      "t": "2026-08-21T17:35:17.278Z",
+      "msg": "Night ring & three-day run: builder — Rewrote src/run/Ring.js from a scaled unit cylinder with white dashes into a \"rain of night\" weather front: two terrain-following shells (per-column ground-height attribute, inner shell for parallax) with a premultiplied-alpha shader that lays a dense dark veil over whatever lies beyond, broad x narrow falling curtains, three streak layers (needles / streaks / sparse bloom-bright), blue fire tongues and cores gathering in patches at the base, a rim glow, and the Atmosphere's pow-1.7 haze curve so the far side of the ring fades instead of adding pale fog; plus a terrain-conforming rim strip that spills violet light on the ground inside, 600 orbit-mode GPU motes (cold sparks, violet, golden embers, faint mist) round-robin re-placed along the arc nearest the camera, and a proximity fog tint. Ring.update now writes player.ringDist/outsideRing (Expedition keeps only the damage tick), and a one-site edit in ui/HUD.js shows a violet \"THE NIGHT DRAWS NEAR\" warning within 25 m of the wall (noted in CHANGELOG). Iterated 8 capture/look cycles, diagnosing the lavender wash by sampling pixels with the ring hidden; final capture has zero console errors and tools/smoke.mjs passes 27/27."
+    },
+    {
+      "t": "2026-08-21T17:35:17.278Z",
+      "msg": "HUD & menus: round 1 — OURS WON blind (sure)."
+    },
+    {
+      "t": "2026-08-21T17:35:17.278Z",
+      "msg": "HUD & menus: builder — Rewrote src/ui/HUD.js as a Souls-style overlay: bevelled hairline bar frames with gold end caps and a JS-driven delayed cream damage trail on HP and the boss bar, nightfarer/level line, a day gauge (day-progress ring with night-closing arcs plus ring radar) under the bars with the phase timer, a subtle top-centre compass strip with ring/grace/boss markers, chamfered gold weapon/skill/ultimate slots with conic cooldown sweeps, a rune plate with a gold rune glyph, a left-aligned boss bar, and an Elden-Ring-style lower-third boss reveal that replaced the giant centre title (dev suffixes like \"(Placeholder)\" are stripped from names). Added src/ui/Theme.js (palette-derived colour helpers, shared keycap/ornament CSS, no hex outside Style.js) and re-skinned Menus.js to share it; visibility is now class-driven (instant show, fade only on hide) so captures never catch a mid-fade. 27/27 smoke checks pass, zero console errors."
+    },
+    {
+      "t": "2026-08-21T17:35:17.278Z",
+      "msg": "Sites of Grace & loot: round 1 — OURS WON blind (leaning)."
+    },
+    {
+      "t": "2026-08-21T17:35:17.278Z",
+      "msg": "Sites of Grace & loot: builder — Rebuilt the Site of Grace: a branching bronze-gold hilt with golden roots along the terrain, a one-draw-call cylindrical-billboard beam shader (flame-shaped width, ridged upward filaments, wisp break-up toward the top, brightest band ~2.5 m up) with inner column, base flare and a wide haze glow, terrain-conforming multi-ring ground glow replacing the hard yellow disc, 150 motes per site in three layers, and a cooler warm light so the pool stays saturated gold. Built src/run/Loot.js from scratch: 12 chests at POIs/field + 4 planted weapons at wolf dens with rarity-coloured pillars/flares/glows/motes (palette-derived), per-day rarity weights that re-roll upward on day change, E prompt that defers to the grace prompt, pickup equips a rarity-scaled weapon, pays runes, animates the lid, emits loot:pickup and shows a title card. Recomposed the grace pose in Debug.js (low camera behind the kneeling backlit player, beam rising behind the silhouette, rare chest in frame) and refreshed the warm light/prompt in the pose; smoke test 27/27, headless loot-path test green."
+    },
+    {
+      "t": "2026-08-21T17:35:17.904Z",
+      "msg": "Voided vista and HUD round-1 wins: reference frames were wrong (not a vista / no HUD). Bars corrected; re-judging in round 2."
+    },
+    {
+      "t": "2026-08-21T23:34:24.564Z",
+      "msg": "Round 2 attempt 1 aborted: usage limit hit mid-round; all 15 agents errored. Build verified healthy; relaunched."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "Vista & atmosphere: round 2 — bar won (sure). Gap: Frame A renders nothing at all: every one of its 1,440,000 pixels is the same near-black clear colour (RGB 5/8/13, max channel value 13), so there is no terrain, sky, moon, fog, silhouettes, player, or value banding to judge. It is a blank framebuffer, not a vista."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "Vista & atmosphere: builder — Rebuilt the vista's ground and depth structure: terrain face colours now bake real value variation (olive turf with facet-scale mottling, ragged bare-earth pockets chosen so the overlook stays turf with one dirt pocket in view, straw only on convex moonlit crests, darker worn track with ruts, stronger moon-facing steps and per-face jitter) while grass became three tuft silhouettes in tinted clumps that thin on bare ground and the track, with the worn track re-routed to enter the frame bottom-right as a leading line to the lit Overlook Ruins and a deterministic stone fan plus grass grid filling the camera's near wedge. Depth banding got a quadratic haze curve (four distinct value bands), a notched far crest, stacked-slab crags, and dead-tree lines on the near spur, the ruin ridge and the far cliff band plus trees and boulders strung down the misty valley; moon, fog banding and the single warm brazier accent are kept. Zero console errors; the vista renders ~1.13 M triangles in ~347 draw calls (headless SwiftShader fps 1.7, in its normal 1-3 range)."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "Character & animation: round 2 — bar won (sure). Gap: B's hero is hard-faceted flat-shaded blocks with zero tonal gradation or occlusion between parts: the hood is a navy lump, the torso a tan slab, the limbs untapered same-width tubes, and the arm-to-torso and hood-to-shoulder junctions show no darkening, so the body reads as a modeling blockout of primitives rather than a designed character (compounded by the sword blade driving straight into the ground behind the runner)."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "Character & animation: builder — Rebuilt the player rig's extremities and run pose so the character reads as a sculpted hero mid-sprint: flat-faceted lofted limbs with calf-bulge shins tapering into cuffed wedge boots (upper + sole slab, heel, pointed toe), bracers that narrow into the wrist, bigger bevelled mitten fists wrapped around the hilt, a jagged tunic hem, slimmer hood, and a narrower darker cloak that lifts with real folds at a sprint. The run cycle now keeps the lean in the spine (pivot pitch halved), drives the far knee with the near leg trailing and its toe skimming the ground, keeps the blade forward-down, and a computed RUN_PH0 lands that hero frame on the pose's 40-step settle; Player now passes a terrain sampler so per-foot contact ovals (plus a faint pelvis oval) are actually placed, and yaw writes straight to the transform. The character pose is reframed right of centre under the moon with pose-only camera side/lift controls so the feet and blade clear both HUD clusters; smoke test 27/27, zero console errors."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "Combat feel: round 2 — bar won (sure). Gap: The struck enemy in A — the focal point of the whole piece — is an undesigned mid-brown mannequin (plain tunic, grey lump head, no plates/crest/cloth) whose value sits exactly on the mid-brown tent and dirt behind it, and it stands bolt upright with no recoil pose; the spark burst therefore lands on nothing readable and the hit reads as FX sprayed on a capsule rather than a designed foe taking damage."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "Combat feel: builder — Found and fixed the real cause of the critic's \"pale grey struck enemy\": the base Entity hit-flash (white emissive × 0.35) swamped the 7%-albedo soldier regardless of lighting, so Enemy.js now overrides takeHit with a brief weak warm struck tint (blade telegraph heat also cut to a dull red), and the impact point light was cut to 2.4 cd and moved 1.3 m back toward the attacker. The combat pose was rebuilt to be deterministic (no camera lock, since Camera.update keeps blending toward a lock target while posing; explicit orbit + a negative shoulder offset restored by Combat's new afterPose hook) with the soldier planted on the hero's actual blade via boneToWorld/bladePoints, the hero standing 8.5 m from the fire so the camera orbits outside the tent ring, fire and wolf far left, knight right. Arena ground decal widened to 13.5 m with a lifted tan-grey albedo, three-scale breakup, sparse jittered single-boot prints clustered along trodden bands, ash drifts, plus two-tone facet-shaded clutter with extra debris (stones, charcoal, straw, bones); impact sparks reworked into a crisp warm shard burst with motes/chips/ring, dust made earthier and lower, trail body kept faint (a brighter body piled into an additive blob at the hand) with a longer 0.13 s life."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "Night ring & three-day run: round 2 — bar won (sure). Gap: The ring has no vertical volume or spatial boundary: the \"wall\" is a knee-to-shoulder-high strip of blue flame sprites along the horizon, and above it is plain sky, while the rain streaks are a uniform full-screen particle effect that falls on the player just as heavily as at the ring edge. So there is no threshold, no towering translucent curtain, no cold-tinted interior vs. exterior — it reads as \"raining everywhere with a fire hedge\", a flat horizon line rather than a weather front closing in. Compounded by a flat grey gradient ground with zero contact shadow under the character and flat black placeholder tree silhouettes."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "Night ring & three-day run: builder — Rewrote src/run/Ring.js so the night ring reads as a weather front instead of a violet dash billboard on a flat plane: the wall is now a dark navy storm body (near-opaque foot, ragged top, luminous cloud cells, subdued rain bunched into curtains) with blue fire at the foot (patch-gated tongues 2-9 m, hot pale-cyan cores that cross the bloom threshold) drawn on the outer shell plus two skirt ribbons for parallax; the world-light hook was retuned (strong dappled flickering contact band, 20 m reach gradient, faint violet fill, colder desaturated grade beyond, so terrain/grass/trees/the player all respond), the ground pool/mist annulus extended inward, the wall light moved to flame height for the player's rim, a near-camera thin-rain streak system and three mote populations (fire sparks, drifting sparkles, gold embers) were added, and the wall's tangent silhouette dissolves when seen from outside the circle. New src/run/Pose.js composes the `ring` pose (player small in the central meadow among dead trees, wall 12 m ahead, low camera, ring held mid-shrink so the HUD shows \"THE NIGHT CLOSES IN\" and \"THE NIGHT DRAWS NEAR\"); core/Debug.js only delegates to it (noted in CHANGELOG.md). Capture at /Users/rollins/code/games/nightreign-clone/shots/ring.png, zero console errors."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "HUD & menus: round 2 — bar won (sure). Gap: A's arena floor reads as placeholder geometry: the paving is a scatter of separate, un-joined tile slabs sitting at different heights on a flat grey plane, and under them a fully opaque, hard-edged, saturated gold disc is rendered that neither lights the tiles nor respects them (it shows between the gaps as a flat fill). The disc blows out the night-time value range, flattens the player into a black cutout with no grounding shadow, and makes the whole centre of the frame look like a debug radius gizmo rather than a built arena."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "HUD & menus: builder — Rebuilt the HUD to Nightreign's restraint and proportion: thin gradient bars with hot tips over quiet tracks and short cream damage trails (new settleTrails() pose helper replaces the full-width frozen trails), a glowing pale-blue level roundel, a full-width fading top-left panel, plain rune digits with a small dim day/phase line, cool-framed item slots with a fuller sword and painted flask, softer art circles, an 8px boss bar with left-aligned name and sigil, a chest-anchored lock-on reticle, and a Palatino-led serif stack. The hud pose (minimal Debug.js edit) now uses a lower, closer lock-on camera so the player fills the lower centre with the boss towering beyond, and settles both trails before capture. Verified via 1:1 crop comparisons against reference/nightreign/hud/gameplay_2040_08.jpg; smoke test 27/27, zero console errors."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "Churches, forts & ruins: round 2 — bar won (sure). Gap: The church in A is exactly the \"boxes\" failure the brief warns against: the nave is an intact rectangular block with a flat slab roof, ruler-straight wall tops and three thin floating planks standing in for a \"collapse\"; the tower is a plain prism with a pyramid cap; there are no buttresses on the side elevations and the walls are a single uniform light-grey value with no base darkening, corner AO, coursing or weathering, so the whole building reads as clean white cardboard propped on the hill rather than a ruin with a history."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "Churches, forts & ruins: builder — Finished the orphaned POI.js work by rebuilding the Kit in src/world/Structures.js (frame stack, wedge, fire() with a normal-weighted warm-light bake into vertex colours, seg-subdivided boxes, mottle/damp/mul tinting, stacked-opening gothicWall) and wiring POI.js helpers into it (plus a new lancet() recess and graveyard mix). The church kit was rebuilt for the fixed pose: a 10.5x22 nave with mullioned lancets and buttresses, crow-stepped gable whose right shoulder has fallen to expose the collapsed roof's rafters, gabled porch with a two-order pointed arch and sconces, 17 m west tower with belfry/merlons/pinnacles/spire, lit altar, paved forecourt with stairs and corner braziers, walled and open graveyards, all placed 8 m behind the POI centre so the whole silhouette reads against the fog. The fort gained a gatehouse (twin towers, portcullis, machicolation, torches, banners), corbelled parapets, a taller lit keep and a terrain-measured torch-lit causeway down the hill; the ruin became a roofless abbey with a jagged gable, diminishing arcade, column rows and two braziers. Zero console errors; kits are ~11k/17k/4k tris so the 60 fps budget is unaffected."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "Field bosses (day 1 & 2): round 2 — OURS WON blind (sure)."
+    },
+    {
+      "t": "2026-08-22T00:31:45.555Z",
+      "msg": "Field bosses (day 1 & 2): builder — Built the day-1 field boss as a real class: src/entity/bosses/Sentinel.js is a giant mounted knight on a barded black warhorse (one skeleton, horse + rider bones on the shared RigBuilder/Animator) with its own clips (idle, trot/canter, rearing roar intro, rearing overhead chop with ground-ring telegraph and slam, two sweeps, lance-levelled trample charge, hit/stagger/death) and a gold slot-2 ember material (halberd head, eye slits, visor) that heats on wind-ups; the existing Gravehorn Demon stays as day 2 with its toy-red glow/heat/ring toned down and a fixed pickAttack (Enemy calls it without a distance). Boss.js/Telegraph.js got per-boss glow colour, heat scale and a crisp ring shader; BossArena.js gained cracked flagstone paving, a ruined gate framing the moon, and broken wall stubs; Pose.js recomposes the `boss` pose on the bar (low camera, lock-on style shoulder offset restored by the next snap, Sentinel facing the camera mid wind-up, final ring closed around the arena, pre-aged dust/embers). Wired the roster into Expedition.js (spawnBoss/spawnDebug via createBoss, Nightlord placeholder kept for day 3) and Debug.js (`boss` pose delegates to composeBossPose); smoke test 27/27, headless AI run of both bosses clean, zero console errors."
+    },
+    {
+      "t": "2026-08-22T00:34:18.348Z",
+      "msg": "Voided the bosses round-2 win (bar frame was a buried-camera gameplay shot); bar is now Nightreign's official boss screenshot. Vista round-2 capture was blank — capture fault, re-captured."
+    },
+    {
+      "t": "2026-08-22T01:28:38.004Z",
+      "msg": "Vista & atmosphere: round 3 capture failed — capture failed"
+    },
+    {
+      "t": "2026-08-22T01:28:38.004Z",
+      "msg": "Character & animation: round 3 — bar won (sure). Gap: B's character is lit flat and front-on even though the moon sits directly behind it at top-centre: the blue tunic and hood are a single uniform value with no gradient, no rim/edge light on the shoulders or hood, and no occlusion where cloak, belt and pouches meet the body. Combined with constant-diameter tube limbs ending in a yellow sphere hand and capsule boots, the hero reads as unshaded primitives pasted over the backdrop rather than a sculpted figure sitting in that fog."
+    },
+    {
+      "t": "2026-08-22T01:28:38.004Z",
+      "msg": "Character & animation: builder — Re-shaded the hero in src/entity/Humanoid.js: RigBuilder.build gained opt-in crease-aware (60°) area-weighted smooth normals and a point-based per-vertex AO bake (two-sided disc form factors on a grid, baked in a spread pose via a new posed() skinning pass so bind-pose limbs stop occluding each other, plus ground darkening and a painted mottle), the body material now shades smooth/matte with a moon-side fresnel rim instead of a uniform outline, limbs re-lofted with designed taper (deltoid 2.6x wrist, hip 2x ankle), costume pulled toward the muted stone/leather palette, hood given a drooping peak and wider drape. The run clip's sword arm now carries the forearm level with the blade pitched +16° in world space (tip 1.18 m up, 1.3 m ahead, never below 0.66 m through the cycle) so it no longer drives into the ground, and the cloak sway moved into a GLSL function whose finite differences give smooth cloth normals (darker, less level, calmer folds). Other rigs are untouched (opt-in), zero console errors, 10k-vertex rig bakes in ~50 ms at build."
+    },
+    {
+      "t": "2026-08-22T01:28:38.004Z",
+      "msg": "Combat feel: round 3 — OURS WON blind (leaning)."
+    },
+    {
+      "t": "2026-08-22T01:28:38.004Z",
+      "msg": "Combat feel: builder — Re-kitted the struck Soldier in src/entity/enemies/EnemyRig.js for value separation (crested wide-brim kettle helm over a charcoal aventail, one big three-lame pauldron on the shield shoulder, charcoal tabard with bone trim and emblem, greaves, bone-cross shield, gold knight crest) and added ENEMY_CLIPS with a mirror-capable held hit-stop `recoil` (torso bent back and rolled away, near arm flung, far arm thrown up, rear leg skidding) that gameplay now uses for heavy blows (src/entity/Enemy.js). Combat FX were reworked: the weapon trail is a premultiplied MAX-blended crescent (no more additive blob), impact() drives a new warm HIT_RIM uniform in the enemy shader so the spark burst wraps the struck body's edges, skidDust() drags a smear from a sliding foot, and dust is paler so it reads on the dirt. The combat pose (src/combat/Pose.js) was mirrored: camera over the hero's left shoulder, a light2 cut with a chest roll baked through the trail samples for a high-to-low diagonal, the soldier planted big right-of-centre on the blade in the recoil with the impact light/rim anchored on the contact, the fire centred as a backlight with the knight's heated wind-up silhouetted beside it and the wolf crouched left; tools/screenshot.mjs keeps dying on parallel Vite reloads, so the final capture came from a retrying scratch script (the official tool also reported zero console errors)."
+    },
+    {
+      "t": "2026-08-22T01:28:38.004Z",
+      "msg": "Night ring & three-day run: round 3 — OURS WON blind (leaning)."
+    },
+    {
+      "t": "2026-08-22T01:28:38.004Z",
+      "msg": "Night ring & three-day run: builder — Rebuilt the night ring as a weather front with real vertical volume: the wall shells are now a deep-navy fresnel veil (dense where it curves away, thin facing the camera) that dissolves over the bottom metres so the fire and ground pool own the terrain contact, carrying sparse tall falling-light curtains, drifting nebula cells, and crisp blue fire tongues 4–12 m tall with thin pale cores and a broken-up base; the rain is a 1100-streak curtain confined to a band about the wall so the player stands in dry air, the world hook adds a capped saturated-blue fire band, a cold night fog beyond the wall and a fresnel fire rim on trunks/rocks/the player, and motes cluster at the fire. The pose moved off the flattened arena to the grassy overlook crest (player left of centre, wall 12 m ahead downslope, blue-lit dead trees beyond, hero tree framing right, HUD countdown + proximity warning). Official capture has zero console errors, smoke test 27/27."
+    },
+    {
+      "t": "2026-08-22T01:28:38.004Z",
+      "msg": "HUD & menus: round 3 capture failed — capture failed"
+    },
+    {
+      "t": "2026-08-22T01:28:38.004Z",
+      "msg": "Churches, forts & ruins: round 3 — bar won (sure). Gap: A has no ambient occlusion or contact shadowing anywhere: every facet is one flat value (lit or unlit) and the buttresses, broken-wall fragments and gravestones meet a single flat olive ground plane with zero darkening at the base, so the masses float and read as extruded boxes dropped on a plane rather than masonry rooted in a hill — exactly the \"boxes\" the brief warns against."
+    },
+    {
+      "t": "2026-08-22T01:28:38.004Z",
+      "msg": "Churches, forts & ruins: builder — Rebuilt the church as a real ruin and re-composed all three architecture poses. Structures.js: Kit gained per-quad facet jitter, a stronger base/damp gradient, low-frequency weathering, inside-corner AO from registered occluder boxes, halo-free fires (warm bake without the hovering glow disc), a beam() primitive and a wrap-lit structure material so moon-shadow faces are mid blue-grey instead of black; the church now has ruinWall column walls with 3-7 stepped jagged heights per wall (breach on the camera side, far wall's rear half at ~40%), no roof slab but nine A-frame rafter pairs (two snapped, two fallen into the nave, sagging ridge, slates clinging to the rear bays), 1.3x1.5 m stepped buttresses on every bay, crow-stepped west gable with a sky-through great window over a two-order porch, a three-stage tower with clasping buttresses, blind arcading, belfry lancets, corbel table, broken parapet and collapsed-spire stump, tumbled ashlar at the wall feet and an east burial plot on the measured slope; POI.js gained ruinWall/blindArcade/corbelTable; the fort got halo-free causeway/curtain torches and the ruin a jagged-column gable with buttresses. New world/Pose.js compositions (church from the front-right with the grace behind the camera, fort from the east flank below the plateau, ruin from the high ground against the misty basin) are wired via a minimal Debug.js delegation; official capture run reports zero console errors."
+    },
+    {
+      "t": "2026-08-22T01:28:38.004Z",
+      "msg": "Field bosses (day 1 & 2): round 3 — bar won (sure). Gap: The boss in B is an illegible lump: mount body, neck, head and rider torso are all the same near-black boxy mass with no value separation, so the horse and knight merge into one blob and the only thing that reads is the halberd sticking out of it. The silhouette is supposed to sell the threat, and here it sells a stack of crates with a flat red rectangle hung off the side; the player's chibi figure in front reads more clearly than the boss does."
+    },
+    {
+      "t": "2026-08-22T01:28:38.004Z",
+      "msg": "Field bosses (day 1 & 2): builder — Replaced the boss arena's scattered box slabs and blown-out gold disc with a continuous paved-floor decal (new Paving.js: running-bond flagstones with grout, joint AO, per-slab value/tilt variation, missing slabs, ragged rim; draws first with no depth write so the player's contact blobs, the boss blob and the thin telegraph ring sit on it, and it receives the player's long moon shadow) and redrew the telegraph as a thin soft rim (~2.5% of radius) whose fill edge merges into the rim. Gave the Gate Sentinel real material separation: a new armour material set (BossRig.armourMats) with a specular flat-facet plate slot plus per-material cool-rim/sky-fill/warm-torch-rim uniforms pointed at the nearest brazier each frame, and a two-tone palette (blued steel + brass rider; black hide, crimson caparison, leather mount); diagnosed that this pipeline's emissive reads ~10x hot, so the body telegraph glow and ember light were cut to accents. Arena mid-ground now frames the boss (ruined gate piers + broken lintel left, gibbet silhouette right), brazier flames are registered in limveld.fires so the world's torch point light and embers follow the arena, and the pose parks that light before capture."
+    },
+    {
+      "t": "2026-08-22T01:30:10.895Z",
+      "msg": "Screenshot tool hardened: reopens the page across hot-reloads and rejects blank frames. Judge-only pass launched for vista and HUD."
+    },
+    {
+      "t": "2026-08-22T01:33:13.207Z",
+      "msg": "Vista & atmosphere: round 3.5 — OURS WON blind (sure)."
+    },
+    {
+      "t": "2026-08-22T01:33:13.207Z",
+      "msg": "Vista & atmosphere: builder — (judge-only pass: no build this round)"
+    },
+    {
+      "t": "2026-08-22T01:33:13.207Z",
+      "msg": "HUD & menus: round 3.5 — bar won (sure). Gap: The entire upper-right quadrant of B is blown out to flat white by an off-screen light bloom: it erases the sky gradient, swallows the right-hand pillar and torch, and collapses the night scene's value range so the frame reads as a post-process bug rather than a lit environment (compounded by a boss that is a jumble of disconnected boxes with no readable silhouette)."
+    },
+    {
+      "t": "2026-08-22T01:33:13.207Z",
+      "msg": "HUD & menus: builder — (judge-only pass: no build this round)"
+    },
+    {
+      "t": "2026-08-22T01:34:08.449Z",
+      "msg": "Judge-only pass: vista picked (sure) but the goal wording (night vs daylight bar) biased it — downgraded to provisional along with the leaning combat/ring/grace wins. HUD lost: blown-out bloom top-right. Confirmation pass launched."
+    },
+    {
+      "t": "2026-08-22T01:36:41.572Z",
+      "msg": "Vista & atmosphere: round 4.5 — bar won (leaning). Gap: A's entire bottom third is a carpet of identical grass-tuft sprites at one scale, one hue and one density, spread edge-to-edge with no clumping, no worn path toward the lit castle, and no response to the moon light (tufts under the tree and in the ground's dark patches are exactly as bright as tufts in the open), so the foreground reads as a scattered asset layer sitting on a flat plane rather than terrain, and it drags the whole frame toward 'low-poly asset pack' even though the fog tiers and warm castle focal point behind it are doing real work."
+    },
+    {
+      "t": "2026-08-22T01:36:41.572Z",
+      "msg": "Vista & atmosphere: builder — (judge-only pass: no build this round)"
+    },
+    {
+      "t": "2026-08-22T01:36:41.572Z",
+      "msg": "Combat feel: round 4.5 — bar won (sure). Gap: B's environment reads as untextured blockout: the ground is a single flat dirt-coloured plane whose only value variation is the campfire's radial glow, littered with flat dark polygon \"debris\" that has no shading or AO, and the tents behind are flat-shaded boxes with hairline guy-ropes. Neither fighter casts a readable contact shadow (only dust puffs), so both characters float on a greybox rather than standing in a world, and the tents' scale relative to the figures is unanchored."
+    },
+    {
+      "t": "2026-08-22T01:36:41.572Z",
+      "msg": "Combat feel: builder — (judge-only pass: no build this round)"
+    },
+    {
+      "t": "2026-08-22T01:36:41.572Z",
+      "msg": "Night ring & three-day run: round 4.5 — bar won (sure). Gap: B's boundary wall is a flat additive blue card that has no lighting relationship with the world in front of it: the ground stays one uniform olive flat-shade, the grey rocks at the wall's base pick up zero blue tint, the character has no blue rim and no contact shadow, and the right-hand tree is pure unlit black. The wall therefore reads as a 2D backdrop pasted behind the geometry rather than a volumetric energy wall standing in the same scene, and the hard horizontal seam where the card meets the terrain is fully exposed."
+    },
+    {
+      "t": "2026-08-22T01:36:41.572Z",
+      "msg": "Night ring & three-day run: builder — (judge-only pass: no build this round)"
+    },
+    {
+      "t": "2026-08-22T01:36:41.572Z",
+      "msg": "Sites of Grace & loot: round 4.5 — bar won (sure). Gap: In A the grace paints a saturated orange pool on the ground but the player standing inside that pool receives almost none of it: the cape stays flat, unlit navy with no warm wrap or rim on the side facing the pillar, there is no cast shadow stretching toward the camera and no contact darkening under the feet, so the character reads as a sprite layered over a glow decal rather than a body standing in the light. The low-poly terrain faceting compounds it, but the light/character disconnect is the failure specific to this piece."
+    },
+    {
+      "t": "2026-08-22T01:36:41.572Z",
+      "msg": "Sites of Grace & loot: builder — (judge-only pass: no build this round)"
+    },
+    {
+      "t": "2026-08-22T01:37:24.442Z",
+      "msg": "Confirmation pass 4.5: vista, combat, ring and grace all lost blind with neutral goals — earlier wins were wording/bar artifacts. Foundations builder launched: contact shadows, real point lights on all materials, vertex-painted terrain layers, grass masks, ring ground-fog, bloom cap."
+    }
+  ]
+}

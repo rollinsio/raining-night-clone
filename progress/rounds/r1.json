@@ -1,0 +1,209 @@
+{
+  "round": 1,
+  "results": [
+    {
+      "piece": "vista",
+      "build": {
+        "summary": "Rebuilt the vista's atmosphere and world: a global height+distance fog (three's fog chunks overridden once, colour matched to a pale slate horizon and brightening toward the moon) gives distinct receding value bands over a reshaped terrain (overlook knoll, misty valley, ridge-top Overlook Ruins with two braziers at 200 m, far-shore hills, two-band jagged rim, plus a fogged backdrop ring of peaks), with a large limb-darkened moon, sparse stars and cloud streaks in the sky. New silhouette props (hero trees framing the shot, standing stones, ruin fragments, braziers), knee-high tan two-sided grass lit like the ground, baked moon-facing facet shading, a one-draw-call additive glow mesh for every fire/grace (the warm accent), and a mild lift/desaturate grade; palette desaturated to olive/slate. All poses capture with zero console errors, smoke test 27/27; noted in CHANGELOG that run/Ring.js's unfogged wall draws a violet line across the distant mountains in the vista.",
+        "files_changed": [
+          "/Users/rollins/code/games/nightreign-clone/src/render/Style.js",
+          "/Users/rollins/code/games/nightreign-clone/src/render/Atmosphere.js",
+          "/Users/rollins/code/games/nightreign-clone/src/render/Glows.js",
+          "/Users/rollins/code/games/nightreign-clone/src/render/Postfx.js",
+          "/Users/rollins/code/games/nightreign-clone/src/world/Terrain.js",
+          "/Users/rollins/code/games/nightreign-clone/src/world/Limveld.js",
+          "/Users/rollins/code/games/nightreign-clone/src/world/Props.js",
+          "/Users/rollins/code/games/nightreign-clone/CHANGELOG.md"
+        ],
+        "console_errors": 0,
+        "capture": "/Users/rollins/code/games/nightreign-clone/shots/vista.png",
+        "fps_headless": 2.5
+      },
+      "pair": {
+        "load_ok": true,
+        "ours_capture": "/Users/rollins/code/games/nightreign-clone/critic/vista/r1/ours.png",
+        "A": "bar",
+        "B": "ours",
+        "dir": "/Users/rollins/code/games/nightreign-clone/critic/vista/r1",
+        "fps": 2.3,
+        "console_errors": 0
+      },
+      "verdict": {
+        "pick": "B",
+        "confidence": "sure",
+        "biggest_gap": "A is not a vista at all: it is an enclosed ruin-interior combat shot with no sky, no horizon, no moon, and no depth banding. The whole frame sits in one murky olive-grey value range (pillars, floor, fog, and characters all within roughly the same mid-dark band), so nothing recedes, there is no sense of scale beyond the arena, and the \"atmosphere\" reads as a single flat desaturated haze rather than layered distance. It also has no warm accent to anchor the eye; the brightest elements are the scattered white foliage specks, which pull attention randomly across the floor.",
+        "fix": "Re-frame the shot from outside/at the edge of the ruin with the camera low and wide behind the player so the pillars become mid-ground silhouettes, then add height/distance fog tinted to a pale sky colour with three explicit value steps (foreground near-black, mid-ground pillars ~35% grey, far ridge ~70% grey) against a lit horizon band with a large soft moon; place one warm point light (campfire or grace) in the mid-distance as the sole warm accent, and cut the scattered white foliage specks to one or two clusters so they stop competing with it.",
+        "notes": "B delivers the brief directly: fog-banded low-poly mountains and dead-tree silhouettes at three clear depths under a large soft moon, cool blue-grey palette tied together between sky and ground, and a single warm campfire accent giving a focal point behind the small foreground player for scale (its own weakness is the flat tan repeated grass tufts and featureless ground plane under the character)."
+      },
+      "won": true
+    },
+    {
+      "piece": "character",
+      "build": {
+        "summary": "Rebuilt the player rig in src/entity/Humanoid.js as a designed hero instead of glued primitives: blended-weight tapered limbs with ankle bones (smooth joints, toe-off on the trailing foot), tunic/belt/pouch/strap, a two-layer jagged leather mantle, hood with drooping peak over a smooth faceless head, wedge boots, skin hands, and a cloak + Wylder's palette-red scarf merged into one swaying mesh (speed-driven lift, irregular facet folds, torn hem, own depth material so the shadow sways). Added a matte character lighting hook (cool fresnel rim + sky fill + key-light wrap) so the backlit figure reads against the mist, a fog-aware contact-shadow blob laid onto the terrain normal, a re-timed run cycle with whole-body lean/counter-rotation, deterministic settle() snapping for poses, and an over-the-shoulder camera offset in Camera.js; Player.js now always equips hood+cloak+scarf and grounds the shadow on teleport/update.",
+        "files_changed": [
+          "/Users/rollins/code/games/nightreign-clone/src/entity/Humanoid.js",
+          "/Users/rollins/code/games/nightreign-clone/src/entity/Player.js",
+          "/Users/rollins/code/games/nightreign-clone/src/entity/Camera.js",
+          "/Users/rollins/code/games/nightreign-clone/CHANGELOG.md"
+        ],
+        "console_errors": 0,
+        "capture": "/Users/rollins/code/games/nightreign-clone/shots/character.png",
+        "fps_headless": 2.3
+      },
+      "pair": {
+        "load_ok": true,
+        "ours_capture": "/Users/rollins/code/games/nightreign-clone/critic/character/r1/ours.png",
+        "A": "bar",
+        "B": "ours",
+        "dir": "/Users/rollins/code/games/nightreign-clone/critic/character/r1",
+        "fps": 2,
+        "console_errors": 0
+      },
+      "verdict": {
+        "pick": "A",
+        "confidence": "sure",
+        "biggest_gap": "B's extremities are unmodified primitives: the boots are flat-ended rectangular boxes, the forearms are capped cylinders, and the legs are rigid tapered sticks with no knee or ankle bend, so the run pose reads as blocks rotated around pivots rather than a sculpted figure with articulated weight (the sword hand floats beside the hilt and the ground shadow is a smeared dark blob rather than a contact shadow, compounding the \"glued primitives\" read).",
+        "fix": "Rebuild the limb extremities as tapered, bevelled meshes (wedge boot with a heel and rounded toe that tapers into a shin, forearm tapering into a wrist and mitten-style hand that actually grips the hilt), add knee and elbow joints to the rig so the run cycle bends them (front leg knee-up, trailing leg extended, arm swing counter to legs), and replace the large ground blob with a small soft-edged contact shadow under each foot.",
+        "notes": "A's faceless hero is shaded with the same warm bounce and volumetric key light as the architecture, has a crisp grounding shadow under a weight-shifted stride, and reads as one deliberately designed silhouette against the sunlit floor rather than an assembly of parts."
+      },
+      "won": false
+    },
+    {
+      "piece": "combat",
+      "build": {
+        "summary": "Rebuilt the combat piece end to end: new stylized FX stack (src/combat/Fx.js velocity-stretched spark streaks + white core + expanding ring + soft dust puffs, a shared impact PointLight pulse, src/combat/Trail.js GPU-faded blade-trail ribbons auto-attached to any bladed attacker) wired into a rewritten Combat.js, plus designed enemies: an armoured rig builder (EnemyRig.js: layered pauldrons, breastplate ridge, tassets, tabard, crested kettle hat / great helm with plume, greaves, emblem shield, cape, blade in its own emissive group), a new Fell Knight enemy with a slow heated-blade heavy telegraph, re-skinned Soldier/boss, and a hunched spine-ridged Wolf. The `combat` pose now lives in src/combat/Pose.js (Debug.js delegates in one line): player mid greatsword swing with a baked trail arc into a recoiling shield soldier (sparks, ring, flash, knockback dust), a Knight winding up at right, a crouched Wolf at left, all backlit by the camp fire; smoke test 27/27, zero console errors.",
+        "files_changed": [
+          "/Users/rollins/code/games/nightreign-clone/src/combat/Combat.js",
+          "/Users/rollins/code/games/nightreign-clone/src/combat/Fx.js",
+          "/Users/rollins/code/games/nightreign-clone/src/combat/Trail.js",
+          "/Users/rollins/code/games/nightreign-clone/src/combat/Pose.js",
+          "/Users/rollins/code/games/nightreign-clone/src/combat/Weapons.js",
+          "/Users/rollins/code/games/nightreign-clone/src/entity/Enemy.js",
+          "/Users/rollins/code/games/nightreign-clone/src/entity/enemies/EnemyRig.js",
+          "/Users/rollins/code/games/nightreign-clone/src/entity/enemies/Knight.js",
+          "/Users/rollins/code/games/nightreign-clone/src/entity/enemies/Soldier.js",
+          "/Users/rollins/code/games/nightreign-clone/src/entity/enemies/Wolf.js",
+          "/Users/rollins/code/games/nightreign-clone/src/core/Debug.js",
+          "/Users/rollins/code/games/nightreign-clone/CHANGELOG.md"
+        ],
+        "console_errors": 0,
+        "capture": "/Users/rollins/code/games/nightreign-clone/shots/combat.png",
+        "fps_headless": 2.7
+      },
+      "pair": {
+        "load_ok": true,
+        "ours_capture": "/Users/rollins/code/games/nightreign-clone/critic/combat/r1/ours.png",
+        "A": "bar",
+        "B": "ours",
+        "dir": "/Users/rollins/code/games/nightreign-clone/critic/combat/r1",
+        "fps": 2.7,
+        "console_errors": 0
+      },
+      "verdict": {
+        "pick": "A",
+        "confidence": "sure",
+        "biggest_gap": "B's arena is unbroken greybox: the ground is a single untextured olive plane with no albedo breakup, scatter, footprints or contact shadows under any of the four combatants, and the tents, crates and stakes are flat-shaded single-colour black primitives, so the fight floats on a prototype stage rather than in a camp. Compounding it, the struck enemy is a pale grey figure placed directly in front of the campfire bloom with a white burst on top, so its silhouette and recoil dissolve and the hit reads as a flash on the background, not a body taking damage.",
+        "fix": "Author a real ground material under the fight: a dark trampled-dirt base with a lighter snow/ash scatter mask, a ring of scuffed footprint and ember decals radiating from the campfire, and a soft contact-AO blob (roughly 1.2x foot width, 60% opacity) under every character; then darken the struck enemy's base materials to dark steel/leather (~30% value) with a thin cool rim light so it stays legible against the fire and the spark burst.",
+        "notes": "A reads as one coherent art direction: a unified cool-fog/ochre-grass palette with volumetric light, genuine sense of scale from the fogged giant and cliffs, and the enemy pack's hunched charging silhouettes sell a real ambush even without a hit-spark beat."
+      },
+      "won": false
+    },
+    {
+      "piece": "ring",
+      "build": {
+        "summary": "Rewrote src/run/Ring.js from a scaled unit cylinder with white dashes into a \"rain of night\" weather front: two terrain-following shells (per-column ground-height attribute, inner shell for parallax) with a premultiplied-alpha shader that lays a dense dark veil over whatever lies beyond, broad x narrow falling curtains, three streak layers (needles / streaks / sparse bloom-bright), blue fire tongues and cores gathering in patches at the base, a rim glow, and the Atmosphere's pow-1.7 haze curve so the far side of the ring fades instead of adding pale fog; plus a terrain-conforming rim strip that spills violet light on the ground inside, 600 orbit-mode GPU motes (cold sparks, violet, golden embers, faint mist) round-robin re-placed along the arc nearest the camera, and a proximity fog tint. Ring.update now writes player.ringDist/outsideRing (Expedition keeps only the damage tick), and a one-site edit in ui/HUD.js shows a violet \"THE NIGHT DRAWS NEAR\" warning within 25 m of the wall (noted in CHANGELOG). Iterated 8 capture/look cycles, diagnosing the lavender wash by sampling pixels with the ring hidden; final capture has zero console errors and tools/smoke.mjs passes 27/27.",
+        "files_changed": [
+          "/Users/rollins/code/games/nightreign-clone/src/run/Ring.js",
+          "/Users/rollins/code/games/nightreign-clone/src/run/Expedition.js",
+          "/Users/rollins/code/games/nightreign-clone/src/ui/HUD.js",
+          "/Users/rollins/code/games/nightreign-clone/CHANGELOG.md"
+        ],
+        "console_errors": 0,
+        "capture": "/Users/rollins/code/games/nightreign-clone/shots/ring.png",
+        "fps_headless": 2
+      },
+      "pair": {
+        "load_ok": true,
+        "ours_capture": "/Users/rollins/code/games/nightreign-clone/critic/ring/r1/ours.png",
+        "A": "bar",
+        "B": "ours",
+        "dir": "/Users/rollins/code/games/nightreign-clone/critic/ring/r1",
+        "fps": 2,
+        "console_errors": 0
+      },
+      "verdict": {
+        "pick": "A",
+        "confidence": "sure",
+        "biggest_gap": "B's ground is a single flat navy value with no texture, no fog, and no lighting response, and the rain wall terminates on it as a hard, dead-straight horizontal line with no emissive rim or ground tint gradient; the result reads as a vertical rain-texture billboard standing on a tabletop, not a weather front rolling across terrain. Nothing in the scene is lit by the wall (the character's cape, sword, and cast shadow show zero blue-violet rim or bounce), so the threat is pasted behind the world instead of existing in it.",
+        "fix": "In the terrain shader, sample signed distance to the ring edge and (a) add an additive blue-violet emissive band that falls off over ~4 m from the contact line, with a darker, desaturated cold tint applied inside the ring, and (b) spawn 2-3 layers of scrolling low-fog cards with noise alpha along the base so the contact edge is broken and soft; then add a single blue-violet point/rect light parented to the nearest ring point so the player's silhouette picks up a rim highlight from the wall.",
+        "notes": "A's ring is rendered as translucent volumetric flame that licks through the grass and rim-lights every figure in cold blue, so the threat is physically integrated with the terrain and characters rather than layered behind them."
+      },
+      "won": false
+    },
+    {
+      "piece": "hud",
+      "build": {
+        "summary": "Rewrote src/ui/HUD.js as a Souls-style overlay: bevelled hairline bar frames with gold end caps and a JS-driven delayed cream damage trail on HP and the boss bar, nightfarer/level line, a day gauge (day-progress ring with night-closing arcs plus ring radar) under the bars with the phase timer, a subtle top-centre compass strip with ring/grace/boss markers, chamfered gold weapon/skill/ultimate slots with conic cooldown sweeps, a rune plate with a gold rune glyph, a left-aligned boss bar, and an Elden-Ring-style lower-third boss reveal that replaced the giant centre title (dev suffixes like \"(Placeholder)\" are stripped from names). Added src/ui/Theme.js (palette-derived colour helpers, shared keycap/ornament CSS, no hex outside Style.js) and re-skinned Menus.js to share it; visibility is now class-driven (instant show, fade only on hide) so captures never catch a mid-fade. 27/27 smoke checks pass, zero console errors.",
+        "files_changed": [
+          "/Users/rollins/code/games/nightreign-clone/src/ui/HUD.js",
+          "/Users/rollins/code/games/nightreign-clone/src/ui/Theme.js",
+          "/Users/rollins/code/games/nightreign-clone/src/ui/Menus.js",
+          "/Users/rollins/code/games/nightreign-clone/CHANGELOG.md"
+        ],
+        "console_errors": 0,
+        "capture": "/Users/rollins/code/games/nightreign-clone/shots/hud.png",
+        "fps_headless": 2.7
+      },
+      "pair": {
+        "load_ok": true,
+        "ours_capture": "/Users/rollins/code/games/nightreign-clone/critic/hud/r1/ours.png",
+        "A": "ours",
+        "B": "bar",
+        "dir": "/Users/rollins/code/games/nightreign-clone/critic/hud/r1",
+        "fps": 2.7,
+        "console_errors": 0
+      },
+      "verdict": {
+        "pick": "A",
+        "confidence": "sure",
+        "biggest_gap": "Frame B contains no HUD whatsoever — no HP/FP/stamina bars, no boss bar or name, no rune counter, no compass strip, no day/ring indicator, no lock-on reticle, no item prompt. For a piece whose entire subject is the HUD layer, it is a raw gameplay render with nothing to evaluate; the underlying environment is far more refined than A's low-poly flat-ground scene, but that is not the piece under judgement.",
+        "fix": "Composite the full Souls-style HUD layer over the frame before submitting: stacked HP (crimson) / FP (blue) / stamina (green) bars in dark bevelled frames with a lagging tan damage trail at top-left, a compass strip with cardinal letters at top-centre, a boss name in letterspaced serif over a hairline gold rule and a gold boss bar at bottom-centre, a rune counter with gold glyph in a dark plate at bottom-right, and a lock-on reticle on the active target.",
+        "notes": "A ships every element of the spec as one coherent system — charcoal bevelled frames, gold end-caps and hairline ornaments, letterspaced serif caps, a visible damage trail on the HP bar, and a lock-on reticle — with consistent gold/charcoal palette and margins so nothing reads as a default DOM widget, even though the underlying low-poly scene (flat single-value ground, placeholder boss) is far weaker than B's render."
+      },
+      "won": true
+    },
+    {
+      "piece": "grace",
+      "build": {
+        "summary": "Rebuilt the Site of Grace: a branching bronze-gold hilt with golden roots along the terrain, a one-draw-call cylindrical-billboard beam shader (flame-shaped width, ridged upward filaments, wisp break-up toward the top, brightest band ~2.5 m up) with inner column, base flare and a wide haze glow, terrain-conforming multi-ring ground glow replacing the hard yellow disc, 150 motes per site in three layers, and a cooler warm light so the pool stays saturated gold. Built src/run/Loot.js from scratch: 12 chests at POIs/field + 4 planted weapons at wolf dens with rarity-coloured pillars/flares/glows/motes (palette-derived), per-day rarity weights that re-roll upward on day change, E prompt that defers to the grace prompt, pickup equips a rarity-scaled weapon, pays runes, animates the lid, emits loot:pickup and shows a title card. Recomposed the grace pose in Debug.js (low camera behind the kneeling backlit player, beam rising behind the silhouette, rare chest in frame) and refreshed the warm light/prompt in the pose; smoke test 27/27, headless loot-path test green.",
+        "files_changed": [
+          "/Users/rollins/code/games/nightreign-clone/src/run/Grace.js",
+          "/Users/rollins/code/games/nightreign-clone/src/run/Loot.js",
+          "/Users/rollins/code/games/nightreign-clone/src/core/Debug.js",
+          "/Users/rollins/code/games/nightreign-clone/CHANGELOG.md"
+        ],
+        "console_errors": 0,
+        "capture": "/Users/rollins/code/games/nightreign-clone/shots/grace.png",
+        "fps_headless": 2
+      },
+      "pair": {
+        "load_ok": true,
+        "ours_capture": "/Users/rollins/code/games/nightreign-clone/critic/grace/r1/ours.png",
+        "A": "ours",
+        "B": "bar",
+        "dir": "/Users/rollins/code/games/nightreign-clone/critic/grace/r1",
+        "fps": 1.7,
+        "console_errors": 0
+      },
+      "verdict": {
+        "pick": "A",
+        "confidence": "lean",
+        "biggest_gap": "B's grace emits no light into its own scene: there is no warm pool on the floor, no gold key or rim on the hooded player (who reads as a flat dark cutout), and no bounce on the surrounding stonework, so the beam reads as an unlit particle sprite composited over a uniformly murky grey-green frame; the \"one warm thing in a cold world\" contrast collapses into a single dark value, and the hilt-in-ground, loot, and prompt beats of the piece are absent entirely.",
+        "fix": "Place a warm gold point light (~2200K, ~6-8 m radius, inverse-square falloff) at floor level at the base of the grace so it lays a visible amber pool on the flagstones within ~3 m and puts a warm rim on the back of the player's hood and shoulders against the cold interior, and plant the sword-hilt mesh at that light's origin so the beam is anchored to the ground rather than hanging mid-air.",
+        "notes": "A delivers every beat of the brief as one coherent stylized direction: a grounded gold beam with motes that actually lights the kneeling player and the ground around it, a cold blue night with purple-rimmed ridgelines for contrast, and a rarity-coloured chest beam with a readable prompt, even though the beam core is blown out and the low-poly terrain is close to one flat value."
+      },
+      "won": true
+    }
+  ]
+}

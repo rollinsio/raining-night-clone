@@ -1,0 +1,223 @@
+[
+  {
+    "id": "vista",
+    "name": "Vista & atmosphere",
+    "goal": "A wide night vista of Limveld that reads as a coherent, art-directed stylized world: fog-layered low-poly terrain receding in distinct value bands to a pale horizon, a large soft moon and faint stars, bare dead trees and ruin silhouettes at several depths, cool moonlight with one warm accent (a distant grace or campfire), the small faceless player in the foreground for scale. Clean facets, no tiling noise, no flat single-colour ground; the ground and sky must be tonally related.",
+    "folders": [
+      "src/render/",
+      "src/world/Terrain.js",
+      "src/world/Props.js",
+      "src/world/Limveld.js"
+    ],
+    "poses": [
+      "vista"
+    ],
+    "bar": "reference/ashen/steam_04.jpg",
+    "extraBars": [
+      "reference/ashen/steam_06.jpg",
+      "reference/ashen/frames/t_003.jpg"
+    ],
+    "barLabel": "Ashen"
+  },
+  {
+    "id": "character",
+    "name": "Character & animation",
+    "goal": "A close rear three-quarter frame of the player mid-run: smooth faceless head, hood and cloak with sway, tapered limbs with believable proportions, a readable silhouette against the fog, weight in the pose (forward lean, arm swing, trailing foot), a proper contact shadow, and shading consistent with the world (soft facets, no shiny plastic). Should look like a deliberately designed stylized hero, not primitives glued together.",
+    "folders": [
+      "src/entity/Humanoid.js",
+      "src/entity/Player.js",
+      "src/entity/Camera.js"
+    ],
+    "poses": [
+      "character"
+    ],
+    "bar": "reference/ashen/steam_08.jpg",
+    "extraBars": [
+      "reference/ashen/frames/t_005.jpg",
+      "reference/ashen/frames/t_014.jpg"
+    ],
+    "barLabel": "Ashen"
+  },
+  {
+    "id": "combat",
+    "name": "Combat feel",
+    "goal": "A frame of weighty soulslike combat: the player mid-swing with a visible weapon arc/trail, an enemy with a distinct silhouette recoiling from a hit with a spark/flash burst, camera framing both, a second enemy telegraphing an attack. Enemies must look designed (armour plates, cloth, a helm crest, a wolf's hunched back), hit FX crisp and stylized, ground dust at feet. Reads as a real encounter, not capsules colliding.",
+    "folders": [
+      "src/combat/",
+      "src/entity/Enemy.js",
+      "src/entity/enemies/"
+    ],
+    "poses": [
+      "combat"
+    ],
+    "bar": "reference/ashen/steam_09.jpg",
+    "extraBars": [
+      "reference/ashen/steam_07.jpg",
+      "reference/ashen/frames/t_020.jpg"
+    ],
+    "barLabel": "Ashen"
+  },
+  {
+    "id": "ring",
+    "name": "Night ring & three-day run",
+    "goal": "The night ring closing in: a towering translucent wall of blue-violet 'rain of night' streaking downward, a glowing rim where it meets the terrain, ground and fog inside the threat tinted colder, embers/motes drifting near the wall, the player small beside it. The HUD's day/timer and a ring-proximity warning visible. Should look like a supernatural weather front, not a cylinder.",
+    "folders": [
+      "src/run/Ring.js",
+      "src/run/Expedition.js"
+    ],
+    "poses": [
+      "ring"
+    ],
+    "bar": "reference/nightreign/steam_03.jpg",
+    "extraBars": [
+      "reference/nightreign/frames/t_043.jpg",
+      "reference/nightreign/frames/t_034.jpg"
+    ],
+    "barLabel": "Nightreign"
+  },
+  {
+    "id": "hud",
+    "name": "HUD & menus",
+    "goal": "A Souls-style HUD over live gameplay: HP (crimson), FP (blue) and stamina (green) bars top-left in dark bevelled frames with delayed damage trails, a rune counter bottom-right with a gold glyph, a boss bar with name bottom-centre, a day/time/ring indicator, a lock-on reticle, a subtle compass strip at top, an item prompt. Refined serif caps with letterspacing, hairline gold ornaments, perfectly aligned; must never look like default DOM widgets.",
+    "folders": [
+      "src/ui/"
+    ],
+    "poses": [
+      "hud"
+    ],
+    "bar": "reference/nightreign/hud/gameplay_2040_08.jpg",
+    "extraBars": [
+      "reference/nightreign/hud/gameplay_1200_01.jpg",
+      "reference/nightreign/hud/gameplay_1200_07.jpg"
+    ],
+    "barLabel": "Nightreign"
+  },
+  {
+    "id": "grace",
+    "name": "Sites of Grace & loot",
+    "goal": "A Site of Grace at night: a golden sword-hilt of light planted in the ground with a soft vertical beam, rising gold motes, a warm light pool on the ground and on the approaching player, the cold night around it; a weapon pickup or chest nearby with a rarity-coloured glow and a prompt. Should feel sacred and inviting, the one warm thing in a cold world.",
+    "folders": [
+      "src/run/Grace.js",
+      "src/run/Loot.js"
+    ],
+    "poses": [
+      "grace"
+    ],
+    "bar": "reference/nightreign/frames/t_008.jpg",
+    "extraBars": [
+      "reference/nightreign/steam_09.jpg",
+      "reference/nightreign/frames/t_027.jpg"
+    ],
+    "barLabel": "Nightreign"
+  },
+  {
+    "id": "architecture",
+    "name": "Churches, forts & ruins",
+    "goal": "A ruined church on a hill (and a fort, and ruins): pointed-arch openings, a broken nave with a collapsed roof, buttress silhouettes, stone stairs, a torch or two, gravestones, all low-poly with clean facets, strong massing and believable proportions; fog separates it from the terrain behind. Should look like a place with a history, not boxes.",
+    "folders": [
+      "src/world/Structures.js",
+      "src/world/POI.js"
+    ],
+    "poses": [
+      "church",
+      "fort",
+      "ruin"
+    ],
+    "bar": "reference/ashen/steam_03.jpg",
+    "extraBars": [
+      "reference/ashen/frames/t_037.jpg",
+      "reference/ashen/steam_05.jpg"
+    ],
+    "barLabel": "Ashen"
+  },
+  {
+    "id": "bosses",
+    "name": "Field bosses (day 1 & 2)",
+    "goal": "A day-1/day-2 field boss encounter: a large, distinctive boss (a mounted sentinel knight with a halberd, or a hulking horned demon) towering over the player, a readable wind-up telegraph, an arena with its own lighting accent, the boss health bar with name. Scale contrast and silhouette must sell the threat.",
+    "folders": [
+      "src/entity/bosses/Boss.js",
+      "src/entity/bosses/FieldBosses.js",
+      "src/entity/bosses/Sentinel.js",
+      "src/entity/bosses/Demon.js"
+    ],
+    "poses": [
+      "boss"
+    ],
+    "bar": "reference/nightreign/steam_05.jpg",
+    "extraBars": [
+      "reference/nightreign/hud/gameplay_1200_01.jpg",
+      "reference/nightreign/frames/t_060.jpg"
+    ],
+    "barLabel": "Nightreign"
+  },
+  {
+    "id": "nightlord",
+    "name": "Nightlord (night 3)",
+    "goal": "The night-3 Nightlord: a huge otherworldly boss (a golden-maned tri-headed beast, or a night-cloaked sovereign) with a phase-2 transformation, the sky and arena changing with it (gold or violet storm), a particle aura, a 'NIGHTLORD' title card and boss bar. Must feel like the climax of the run.",
+    "folders": [
+      "src/entity/bosses/Nightlord.js",
+      "src/entity/bosses/NightlordArena.js"
+    ],
+    "poses": [
+      "nightlord"
+    ],
+    "bar": "reference/nightreign/hud/gameplay_2040_07.jpg",
+    "extraBars": [
+      "reference/nightreign/hud/gameplay_2040_05.jpg",
+      "reference/nightreign/steam_08.jpg"
+    ],
+    "barLabel": "Nightreign"
+  },
+  {
+    "id": "hub",
+    "name": "Roundtable Hold & relics",
+    "goal": "Roundtable Hold as a 3D scene: a dim stone hall with a great round table covered in maps, candles and a grace's golden light, the Nightfarers standing around it, a relic-vessel menu (three slots per character, persisted between runs), and an 'Embark' flow. Warm candlelight against cold stone; intimate and worn.",
+    "folders": [
+      "src/hub/",
+      "src/meta/"
+    ],
+    "poses": [
+      "hub"
+    ],
+    "bar": "reference/nightreign/steam_09.jpg",
+    "extraBars": [
+      "reference/nightreign/frames/t_020.jpg",
+      "reference/nightreign/frames/t_091.jpg"
+    ],
+    "barLabel": "Nightreign"
+  },
+  {
+    "id": "nightfarers",
+    "name": "Eight Nightfarers",
+    "goal": "Eight visually distinct Nightfarers lined up: Wylder (greatsword, hooded), Guardian (tall shield, halberd, feathered avian helm), Ironeye (bow, slim, masked), Raider (hulking, great axe, bare arms), Recluse (witch, wide hat, staff), Executor (katana, straw hat, wrapped), Duchess (twin daggers, ornate dress), Revenant (doll, lyre, veil). Each with a working skill and ultimate in play with its own FX. Silhouettes must be tellable apart at a glance.",
+    "folders": [
+      "src/nightfarers/"
+    ],
+    "poses": [
+      "roster"
+    ],
+    "bar": "reference/nightreign/frames/t_095.jpg",
+    "extraBars": [
+      "reference/nightreign/frames/t_089.jpg",
+      "reference/nightreign/frames/t_100.jpg"
+    ],
+    "barLabel": "Nightreign"
+  },
+  {
+    "id": "shifting",
+    "name": "Shifting Earth",
+    "goal": "A Shifting Earth variant that visibly rewrites a region of the map: a volcanic crater (black rock, lava veins, ash sky), a frozen mountain (ice-blue facets, snow haze) or a rot swamp (sickly red-orange water, spore motes, gnarled trees). The capture must look like a different, alien biome, with tougher enemies visible.",
+    "folders": [
+      "src/run/ShiftingEarth.js"
+    ],
+    "poses": [
+      "shifting"
+    ],
+    "bar": "reference/nightreign/steam_06.jpg",
+    "extraBars": [
+      "reference/nightreign/frames/t_030.jpg",
+      "reference/nightreign/steam_04.jpg"
+    ],
+    "barLabel": "Nightreign"
+  }
+]

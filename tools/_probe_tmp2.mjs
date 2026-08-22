@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl', '--no-sandbox'] });
+const page = await browser.newPage({ viewport: { width: 640, height: 360 } });
+page.on('console', (m) => { if (/\[kit\]|error/i.test(m.text()) || m.type() === 'error') console.log(m.type(), m.text()); });
+page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
+const t0 = Date.now();
+await page.goto('http://localhost:5173', { waitUntil: 'load' });
+await page.waitForFunction(() => window.__game && window.__game.ready, null, { timeout: 180000 });
+console.log('ready in', Date.now() - t0, 'ms');
+await browser.close();

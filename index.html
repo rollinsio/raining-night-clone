@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nightreign Demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #07080f; }
+  body { font-family: Georgia, 'Times New Roman', serif; color: #d8d4c8; user-select: none; -webkit-user-select: none; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+  #hud, #menu { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  #menu > * { pointer-events: auto; }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0"></canvas>
+<div id="hud"></div>
+<div id="menu"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

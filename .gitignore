@@ -1,0 +1,20 @@
+node_modules/
+
+# Reference footage and screenshots pulled from Steam / YouTube — large, not ours to redistribute.
+reference/
+
+# Blind A/B pairs generated per round (regenerable from shots/ + reference/).
+critic/
+
+# Generated thumbnails for the progress page (regenerable: node tools/progress.mjs).
+progress/thumbs/
+
+# Before/after working captures.
+shots/before/
+
+*.mp4
+.DS_Store
+.claude/
+
+# Generated progress page: embeds reference stills as data URIs. Rebuild with: node tools/progress.mjs
+progress/index.html
