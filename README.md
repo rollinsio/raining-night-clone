@@ -1,4 +1,4 @@
-# Limveld — a browser Nightreign demo
+# Slimveld — a browser Nightreign demo
 
 A playable, high-fidelity demo of *Elden Ring Nightreign*'s run loop, built in the browser with Three.js and Vite. **Everything is procedural** — every mesh, material, shader, particle and UI element is generated in code. No models, textures, images, fonts or network requests.
 
