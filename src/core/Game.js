@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { Events } from './Events.js';
 import { Input } from './Input.js';
+import { Touch } from './Touch.js';
 import { Rng } from './Rng.js';
 import { installDebug } from './Debug.js';
 import { Atmosphere } from '../render/Atmosphere.js';
@@ -64,6 +65,7 @@ export class Game {
     this.hud = new HUD(this);
     this.menus = new Menus(this);
     this.map = new GameMap(this);
+    this.touch = new Touch(this);
     installDebug(this);
     window.addEventListener('resize', () => this.resize());
     this.input.onLockChange = (locked) => {
@@ -189,6 +191,7 @@ export class Game {
     this.postfx.update(dt);
     this.terrain.update(this.camera.position);
     this.map.update(dt);
+    if (this.touch) this.touch.update();
     input.endFrame();
   }
 

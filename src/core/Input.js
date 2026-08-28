@@ -26,6 +26,8 @@ export class Input {
     this.sensitivity = 0.0022;
     this.move = { x: 0, y: 0 };    // normalised, y = forward
     this.wantLock = true;
+    this.noLock = false;           // touch mode: never request pointer lock (Touch.js sets this)
+    this.touchAxis = { x: 0, y: 0 }; // virtual stick (Touch.js writes, merged like the gamepad axis)
     this.gamepad = null;
 
     window.addEventListener('keydown', (e) => {
@@ -39,7 +41,7 @@ export class Input {
     window.addEventListener('blur', () => { this.held.clear(); });
 
     canvas.addEventListener('mousedown', (e) => {
-      if (!this.locked && this.wantLock) requestLock(canvas);
+      if (!this.locked && this.wantLock && !this.noLock) requestLock(canvas);
       const a = MOUSEMAP[e.button];
       if (a) { this.pressed.add(a); this.held.add(a); }
       if (e.button === 1) e.preventDefault();
@@ -65,6 +67,7 @@ export class Input {
       if (this.held.has('right')) x += 1;
       if (this.held.has('up')) y += 1;
       if (this.held.has('down')) y -= 1;
+      x += this.touchAxis.x; y += this.touchAxis.y;
     }
     if (this.gamepad !== null && navigator.getGamepads) {
       const gp = navigator.getGamepads()[this.gamepad];
@@ -82,6 +85,9 @@ export class Input {
     if (len > 1) { x /= len; y /= len; }
     this.move.x = x; this.move.y = y;
   }
+
+  /** Touch look-pad deltas (same units as mouse movement px; bypasses the pointer-lock gate). */
+  addLook(dx, dy) { this.dx += dx; this.dy += dy; }
 
   isHeld(a) { return this.enabled && this.held.has(a); }
   /** Edge-triggered: true only on the frame the action was pressed. */

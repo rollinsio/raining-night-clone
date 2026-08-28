@@ -1,0 +1,8 @@
+{
+  "appId": "io.rollins.slimveld",
+  "appName": "Slimveld",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#07080f"
+  }
+}

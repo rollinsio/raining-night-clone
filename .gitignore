@@ -18,3 +18,6 @@ shots/before/
 
 # Generated progress page: embeds reference stills as data URIs. Rebuild with: node tools/progress.mjs
 progress/index.html
+
+# Vite build output (regenerable: npm run build)
+dist/

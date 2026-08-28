@@ -65,7 +65,7 @@ export class Menus {
   /** Close and re-acquire pointer lock (must be called from a user gesture). */
   resume() {
     this.closeAll();
-    if (this.game.state === 'EXPEDITION' && this.game.input.wantLock) requestLock(this.game.canvas);
+    if (this.game.state === 'EXPEDITION' && this.game.input.wantLock && !this.game.input.noLock) requestLock(this.game.canvas);
   }
 
   togglePause() {

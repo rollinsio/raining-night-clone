@@ -13,6 +13,20 @@ npx vite --port 5173      # http://localhost:5173 — click the canvas for point
 
 Controls: **WASD** move · **Shift** sprint · **Space** roll (i-frames) · **LMB** light · **RMB** heavy · **Q** lock-on · **E** interact/rest · **1/2** skill/ultimate · **M** map · **Esc** pause.
 
+## Android
+
+The game ships as a native Android app via [Capacitor](https://capacitorjs.com) (`android/` is the checked-in project). On any touch device — the Android build or a phone browser — a touch control overlay activates automatically: a dynamic virtual stick on the left half, a camera pad on the right half (**tap** it to toggle lock-on), and labelled buttons for attack/heavy/roll/skill/ultimate, a latching sprint toggle, a contextual interact button, plus map and pause. The Android shell runs landscape-only, immersive fullscreen, keep-screen-on; the hardware back button closes the map → pauses → backgrounds the app (never kills a run).
+
+Build the APK (needs JDK 21 + the Android SDK, `compileSdk` 36 / `minSdk` 24 — or just open `android/` in Android Studio):
+
+```bash
+npm install
+npm run android:apk       # vite build + cap sync + gradlew assembleDebug
+# → android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+`npm run android:sync` rebuilds the web bundle into the Android project without compiling. `node tools/touch-smoke.mjs` runs 17 end-to-end checks over the touch input path (dev server on :5173).
+
 Performance: **~270 fps uncapped at 1920×1080** on an M-series GPU (measured with `tools/fps-probe.mjs` in headed Chromium), against a 60 fps target.
 
 ## What's in it

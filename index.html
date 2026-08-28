@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <title>Nightreign Demo</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <style>
-  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #07080f; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #07080f; overscroll-behavior: none; }
   body { font-family: Georgia, 'Times New Roman', serif; color: #d8d4c8; user-select: none; -webkit-user-select: none; }
-  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
   #hud, #menu { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
   #menu > * { pointer-events: auto; }
 </style>
