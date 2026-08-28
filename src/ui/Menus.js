@@ -29,6 +29,17 @@ const CSS = BASE_CSS + `
 .m-small { font-size: 12px; letter-spacing: 0.18em; color: ${UI.dim}; text-align: center; margin-top: 16px; text-transform: uppercase; }
 .m-quality { display: flex; gap: 6px; justify-content: center; margin: 8px 0; }
 .m-quality .m-btn { width: auto; font-size: 13px; padding: 6px 14px; }
+/* phone-sized screens (portrait especially): single column, panel fits the viewport and scrolls */
+@media (max-width: 730px), (max-height: 500px) {
+  .m-panel { min-width: 0; max-width: 92vw; max-height: 88vh; overflow-y: auto; box-sizing: border-box; padding: 20px 22px; }
+  .m-h1 { font-size: 22px; }
+  .m-h2 { margin-bottom: 14px; }
+  .m-hub { grid-template-columns: 1fr; gap: 14px; }
+  .m-btn { font-size: 14px; padding: 8px 12px; }
+  .m-list .m-btn { font-size: 14px; padding: 6px 12px; }
+  .m-desc { min-height: 0; }
+  .m-death .t { font-size: 52px; }
+}
 `;
 
 export class Menus {
@@ -93,7 +104,15 @@ export class Menus {
       s.querySelector('#m-nfstats').innerHTML = `<div class="m-row">Vigour <b>${n.hp}</b></div><div class="m-row">Mind <b>${n.fp}</b></div><div class="m-row">Endurance <b>${n.stamina}</b></div><div class="m-row">Weapon <b>${n.weapon}</b></div>`;
     };
     show(0);
-    s.querySelectorAll('.m-list .m-btn').forEach((b) => { b.addEventListener('mouseenter', () => show(+b.dataset.i)); b.addEventListener('click', () => { show(+b.dataset.i); onPick(list[sel]); }); });
+    // touch mode: first tap on a name previews it, a second tap (or Begin) starts — no hover exists
+    s.querySelectorAll('.m-list .m-btn').forEach((b) => {
+      b.addEventListener('mouseenter', () => show(+b.dataset.i));
+      b.addEventListener('click', () => {
+        const i = +b.dataset.i;
+        if (this.game.touch && this.game.touch.active && sel !== i) { show(i); return; }
+        show(i); onPick(list[sel]);
+      });
+    });
     s.querySelector('#m-begin').addEventListener('click', () => onPick(list[sel]));
     this._keys = (e) => {
       if (this.open !== 'hub') return;

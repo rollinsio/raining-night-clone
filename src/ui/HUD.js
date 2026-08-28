@@ -220,6 +220,13 @@ export class HUD {
     this.game = game;
     const root = this.root = document.getElementById('hud');
     const style = document.createElement('style'); style.textContent = BASE_CSS + CSS; document.head.appendChild(style);
+    // The layout is proportioned for 1920×1080; on phone-sized screens (either dimension < 730px —
+    // portrait especially) scale the whole HUD uniformly so bands/bars/map fit. 1920×1080 stays at
+    // zoom 1, so the capture/critic pipeline is pixel-identical. Screen-projected placements
+    // (the reticle) divide by `zoom` to stay put.
+    this.zoom = 1;
+    const fit = () => { this.zoom = Math.min(1, innerWidth / 730, innerHeight / 730); root.style.zoom = this.zoom; };
+    fit(); window.addEventListener('resize', fit);
     root.innerHTML = DEFS + `
       <div class="h-tl"></div>
       <div class="h-lvl">${svg('roundel', '0 0 96 96')}<div class="v">1</div></div>
@@ -426,7 +433,7 @@ export class HUD {
 
       const vis = _v.z < 1;
       E.reticle.style.display = vis ? 'block' : 'none';
-      if (vis) E.reticle.style.transform = `translate(${((_v.x + 1) / 2 * innerWidth) | 0}px, ${((1 - _v.y) / 2 * innerHeight) | 0}px)`;
+      if (vis) E.reticle.style.transform = `translate(${((_v.x + 1) / 2 * innerWidth / this.zoom) | 0}px, ${((1 - _v.y) / 2 * innerHeight / this.zoom) | 0}px)`;
       L.ret = true;
     } else if (L.ret) { E.reticle.style.display = 'none'; L.ret = false; }
     // compass (10 Hz, skipped while hidden)

@@ -3,6 +3,14 @@
 One line per module: what exists, and any known stubs. Folder ownership per ARCHITECTURE.md; the
 skeleton build touched every folder once — later builders own their folders from here.
 
+## Android conversion — portrait orientation (2026-08-28)
+
+- `android/.../AndroidManifest.xml` — `sensorPortrait` (was `sensorLandscape`).
+- `core/Touch.js` — overlay moved to its own root between `#hud` and `#menu` (outside `#hud` so the phone-size HUD zoom never shrinks hit targets; visibility mirrors `hud.visible` each frame); button/pad placement now comes from per-orientation tables (`LAYOUT.portrait` / `.landscape`) applied by `layout()` on build and resize — portrait puts the stick on the left half (50/50 pad split) with the ATK/HVY/ROLL/SKL/ULT/SPR arc up the right edge, clear of the bottom-centre art circles.
+- `ui/HUD.js` — phone fit: uniform `zoom = min(1, w/730, h/730)` on `#hud` so the 1920×1080-proportioned layout (580 px bar band, 720 px map) fits phone screens in either orientation; 1920×1080 stays at zoom 1 so the capture/critic pipeline is pixel-identical; the reticle's screen-projected transform divides by `zoom`.
+- `ui/Menus.js` — responsive panels below 730 px width (or 500 px height): single-column hub grid, `min-width` dropped, panel capped at 92vw/88vh with scroll, smaller type, `YOU DIED` at 52 px. In touch mode a first tap on a hub list name previews it and a second tap (or Begin) starts — no hover exists on phones.
+- `tools/touch-smoke.mjs` — runs the full suite twice (412×915 portrait, 1280×720 landscape; 34 checks); button coordinates read from the live DOM so the orientation tables are what's exercised.
+
 ## Android conversion — Capacitor shell + touch controls (2026-08-28)
 
 ### core

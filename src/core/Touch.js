@@ -1,11 +1,13 @@
 /**
- * Touch controls for phones/tablets (the Android build): a dynamic virtual stick on the left half,
- * a camera-look pad on the right half (a quick tap toggles lock-on), and labelled action buttons —
- * all feeding the same named actions keyboard/mouse produce in Input, so Player/Camera/Menus need
- * no changes. Dormant until a touch device is detected: a coarse, no-hover primary pointer at boot
- * (phones, the Capacitor WebView) or the first real touchstart on a hybrid. The overlay lives
- * inside #hud so it appears only while the HUD does (expeditions) and sits under #menu, keeping
- * DOM menus tappable above it. Cancelling pointerdown suppresses the browser's compatibility mouse
+ * Touch controls for phones/tablets (the Android build, portrait-first): a dynamic virtual stick,
+ * a camera-look pad (a quick tap toggles lock-on), and labelled action buttons — all feeding the
+ * same named actions keyboard/mouse produce in Input, so Player/Camera/Menus need no changes.
+ * Dormant until a touch device is detected: a coarse, no-hover primary pointer at boot (phones,
+ * the Capacitor WebView) or the first real touchstart on a hybrid. The overlay lives in its own
+ * root between #hud and #menu — outside #hud so the phone-size HUD zoom never shrinks hit targets
+ * (visibility mirrors the HUD's each frame), under #menu so DOM menus stay tappable above it.
+ * Button placement comes from per-orientation tables (portrait screens are ~half as wide) and
+ * re-applies on resize. Cancelling pointerdown suppresses the browser's compatibility mouse
  * events, so taps never reach the canvas mousedown path (no stray attacks, no pointer-lock asks).
  */
 import { UI, FONT, TEXT_SHADOW, alpha, mix, shade } from '../ui/Theme.js';
@@ -15,14 +17,28 @@ const DEAD = 0.14;                  // stick dead zone (fraction of STICK_R)
 const LOOK_GAIN = 2.2;              // touch px -> equivalent mouse px for the orbit camera
 const TAP_MS = 220, TAP_PX = 12;    // look-pad tap thresholds (lock-on toggle)
 
+/** Button placement per orientation: [right, bottom|top, size] px; `pad` = left-pad width fraction. */
+const LAYOUT = {
+  landscape: {
+    pad: 0.44,
+    atk: [104, 92, 64], hvy: [26, 152, 50], roll: [26, 28, 56], skl: [190, 136, 46], ult: [176, 40, 46],
+    spr: [288, 30, 42], use: [140, 232, 46], pause: [12, 8, 34, 'top'], map: [56, 8, 34, 'top'],
+  },
+  portrait: {
+    pad: 0.5,
+    atk: [84, 96, 60], hvy: [16, 160, 48], roll: [16, 28, 54], skl: [92, 20, 44], ult: [150, 120, 44],
+    spr: [110, 190, 40], use: [24, 236, 44], pause: [8, 62, 32, 'top'], map: [48, 62, 32, 'top'],
+  },
+};
+
 const LINE = alpha(mix(UI.text, UI.fp, 0.3), 0.4);
 const GOLD_L = shade(UI.gold, 1.5);
 
 const CSS = `
-.t-ui { position: absolute; inset: 0; font-family: ${FONT}; }
+.t-ui { position: fixed; inset: 0; font-family: ${FONT}; pointer-events: none; }
 .t-pad { position: absolute; top: 0; bottom: 0; pointer-events: auto; touch-action: none; }
-.t-pad.l { left: 0; width: 44%; }
-.t-pad.r { left: 44%; right: 0; }
+.t-pad.l { left: 0; }
+.t-pad.r { right: 0; }
 .t-stick { position: absolute; width: ${STICK_R * 2}px; height: ${STICK_R * 2}px; margin: -${STICK_R}px 0 0 -${STICK_R}px; border-radius: 50%; border: 1px solid ${alpha(UI.text, 0.35)}; background: radial-gradient(circle, ${alpha(UI.text, 0.04)}, rgba(8,10,16,0.38)); box-shadow: inset 0 0 22px rgba(0,0,0,0.4); display: none; pointer-events: none; }
 .t-stick .nub { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; border: 1px solid ${alpha(UI.text, 0.55)}; background: radial-gradient(circle at 38% 30%, ${alpha(UI.text, 0.34)}, rgba(10,12,18,0.85)); box-shadow: 0 2px 8px rgba(0,0,0,0.55); }
 .t-btn { position: absolute; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid ${LINE}; background: radial-gradient(circle at 38% 30%, rgba(30,34,48,0.6), rgba(8,10,16,0.74)); color: ${alpha(UI.text, 0.92)}; font-size: 10.5px; letter-spacing: 0.14em; text-indent: 0.14em; text-transform: uppercase; text-shadow: ${TEXT_SHADOW}; box-shadow: 0 2px 10px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.04); pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
@@ -39,6 +55,7 @@ export class Touch {
     this.look = { id: -1, x: 0, y: 0, t: 0, moved: 0 };
     this.sprintLatch = false;
     this._useShown = false;
+    this._shown = null;
     const coarse = matchMedia('(any-pointer: coarse)').matches && !matchMedia('(any-hover: hover)').matches;
     if (coarse) this.activate();
     else window.addEventListener('touchstart', () => this.activate(), { once: true, passive: true });
@@ -51,12 +68,14 @@ export class Touch {
     const hud = this.game.hud;
     this.game.input.noLock = true;
     const style = document.createElement('style'); style.textContent = CSS; document.head.appendChild(style);
-    this.build(document.getElementById('hud'));
+    this.build();
+    this.layout();
+    window.addEventListener('resize', () => this.layout());
     // touch-flavoured controls hint; the interact prompt drops its keyboard keycap (a button appears instead)
     hud.el.hint.innerHTML = 'move<b>left pad</b><br>camera<b>right pad</b><br>lock-on<b>tap right pad</b><br>sprint<b>spr (latches)</b><br>dodge roll<b>roll</b><br>light / heavy<b>atk / hvy</b><br>skill / ultimate<b>skl / ult</b>';
-    // on short screens the desktop hint spot (bottom-right) collides with the day/timer line and buttons
+    // the desktop hint spot (bottom-right) collides with the day/timer line and buttons on phones
     const hs = hud.el.hint.style;
-    hs.top = '126px'; hs.bottom = 'auto'; hs.right = '300px'; hs.fontSize = '10px';
+    hs.top = '126px'; hs.bottom = 'auto'; hs.right = '300px'; hs.fontSize = '12px';
     hud.el.promptK.style.display = 'none';
   }
 
@@ -65,13 +84,28 @@ export class Touch {
   /** setPointerCapture throws for pointers the browser isn't tracking (synthetic events) — never fatal. */
   static cap(el, e) { try { el.setPointerCapture(e.pointerId); } catch { /* fine: move/up still reach us */ } }
 
-  build(root) {
+  /** Apply the orientation's placement table to the pads and buttons (runs on build and resize). */
+  layout() {
+    const L = innerHeight > innerWidth ? LAYOUT.portrait : LAYOUT.landscape;
+    this.padL.style.width = `${L.pad * 100}%`;
+    this.padR.style.width = `${(1 - L.pad) * 100}%`;
+    for (const key in this.btns) {
+      const [right, y, size, anchor] = L[key], b = this.btns[key];
+      b.style.right = right + 'px';
+      if (anchor === 'top') { b.style.top = y + 'px'; b.style.bottom = ''; }
+      else { b.style.bottom = y + 'px'; b.style.top = ''; }
+      b.style.width = b.style.height = size + 'px';
+    }
+  }
+
+  build() {
     const ui = this.ui = document.createElement('div');
     ui.className = 't-ui';
-    root.appendChild(ui);
+    ui.style.display = 'none'; // update() mirrors the HUD's visibility
+    document.body.insertBefore(ui, document.getElementById('menu'));
 
     // ---- pads ------------------------------------------------------------------------------ move
-    const padL = document.createElement('div'); padL.className = 't-pad l'; ui.appendChild(padL);
+    const padL = this.padL = document.createElement('div'); padL.className = 't-pad l'; ui.appendChild(padL);
     const stick = this.stickEl = document.createElement('div'); stick.className = 't-stick'; stick.innerHTML = '<div class="nub"></div>'; ui.appendChild(stick);
     this.nub = stick.firstChild;
     const axis = this.game.input.touchAxis;
@@ -101,7 +135,7 @@ export class Touch {
     padL.addEventListener('pointerup', endStick); padL.addEventListener('pointercancel', endStick);
 
     // ---- look pad -------------------------------------------------------------------------- camera
-    const padR = document.createElement('div'); padR.className = 't-pad r'; ui.appendChild(padR);
+    const padR = this.padR = document.createElement('div'); padR.className = 't-pad r'; ui.appendChild(padR);
     padR.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       if (this.look.id !== -1) return;
@@ -124,28 +158,26 @@ export class Touch {
     padR.addEventListener('pointerup', endLook); padR.addEventListener('pointercancel', endLook);
 
     // ---- buttons --------------------------------------------------------------------------- actions
-    // right-thumb cluster (right/bottom px): ATK centre, ROLL in the corner, HVY above, SKL/ULT/SPR on the arc
-    this.btn('atk', 'light', { right: 104, bottom: 92, size: 64, big: true });
-    this.btn('hvy', 'heavy', { right: 26, bottom: 152, size: 50 });
-    this.btn('roll', 'roll', { right: 26, bottom: 28, size: 56, big: true });
-    this.btn('skl', 'skill', { right: 190, bottom: 136, size: 46 });
-    this.btn('ult', 'ult', { right: 176, bottom: 40, size: 46 });
-    const spr = this.btn('spr', null, { right: 288, bottom: 30, size: 42 });
+    this.btns = {};
+    this.btn('atk', 'atk', 'light', true);
+    this.btn('hvy', 'hvy', 'heavy');
+    this.btn('roll', 'roll', 'roll', true);
+    this.btn('skl', 'skl', 'skill');
+    this.btn('ult', 'ult', 'ult');
+    const spr = this.btn('spr', 'spr', null);
     spr.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.setSprint(!this.sprintLatch); });
     this.sprBtn = spr;
-    this.useBtn = this.btn('use', 'interact', { right: 140, bottom: 232, size: 46 });
+    this.useBtn = this.btn('use', 'use', 'interact');
     this.useBtn.classList.add('t-use');
-    // top edge: pause + map, tucked above the rune band
-    this.btn('▮▮', 'pause', { right: 12, top: 8, size: 34 });
-    this.btn('map', 'map', { right: 56, top: 8, size: 34 });
+    this.btn('pause', '▮▮', 'pause');
+    this.btn('map', 'map', 'map');
   }
 
-  /** A round action button; `action` null = caller wires its own pointerdown (sprint latch). */
-  btn(label, action, { right, bottom, top, size, big }) {
+  /** A round action button (placed by layout()); `action` null = caller wires its own pointerdown. */
+  btn(key, label, action, big = false) {
     const b = document.createElement('div');
     b.className = 't-btn' + (big ? ' big' : '');
     b.textContent = label;
-    b.style.cssText = `right:${right}px; ${top !== undefined ? `top:${top}px` : `bottom:${bottom}px`}; width:${size}px; height:${size}px;`;
     if (action) {
       b.addEventListener('pointerdown', (e) => {
         e.preventDefault(); e.stopPropagation();
@@ -158,6 +190,7 @@ export class Touch {
       b.addEventListener('pointerup', (e) => e.preventDefault());
     }
     this.ui.appendChild(b);
+    this.btns[key] = b;
     return b;
   }
 
@@ -168,10 +201,12 @@ export class Touch {
     this.sprBtn.classList.toggle('on', on);
   }
 
-  /** Per-frame: show the interact button only while the HUD shows a prompt. */
+  /** Per-frame: mirror the HUD's visibility and show the interact button only while a prompt is up. */
   update() {
     if (!this.active) return;
-    const want = !!this.game.hud.last.prompt && this.game.state === 'EXPEDITION';
+    const vis = !!this.game.hud.visible;
+    if (vis !== this._shown) { this._shown = vis; this.ui.style.display = vis ? '' : 'none'; }
+    const want = vis && !!this.game.hud.last.prompt && this.game.state === 'EXPEDITION';
     if (want !== this._useShown) { this._useShown = want; this.useBtn.style.display = want ? 'flex' : 'none'; }
   }
 }
