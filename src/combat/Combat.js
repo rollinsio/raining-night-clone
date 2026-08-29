@@ -7,14 +7,16 @@ import * as THREE from 'three';
 import { ParticleSystem } from '../render/Particles.js';
 import { PALETTE } from '../render/Style.js';
 import { FxPool } from './Fx.js';
-import { WeaponTrail } from './Trail.js';
-import { bladePoints } from './Weapons.js';
+import { WeaponTrail, boneToWorld } from './Trail.js';
+import { bladePoints, TRAIL_SPAN } from './Weapons.js';
 import { Arena } from './Arena.js';
 import { Projectiles } from './Projectiles.js';
 import { HIT_RIM } from '../entity/enemies/EnemyRig.js';
 
 const DEG = Math.PI / 180, TAU = Math.PI * 2;
 const _d = new THREE.Vector3(), _p = new THREE.Vector3(), _c = new THREE.Color(), _c2 = new THREE.Color();
+const _b0 = new THREE.Vector3(), _b1 = new THREE.Vector3();
+const BLADE_STEPS = 4, BLADE_SAMPLES = 5, BLADE_R = 0.22; // sweep sub-steps between frames, points along the blade, blade hit radius
 const clamp01 = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
 const IMPACT_LIGHT_T = 0.24;
 
@@ -54,6 +56,7 @@ export class Combat {
       const e = ents[i];
       if (!e.alive || e.frozen || !e.attack || e.attack.phase !== 'active') continue;
       if (e.attack.def && e.attack.def.ranged) continue; // released as a projectile, no arc
+      e.object3d.updateMatrixWorld(true);
       this.sweep(e);
       this.sampleTrail(e, time);
     }
@@ -111,13 +114,13 @@ export class Combat {
   acquireTrail(e) {
     if (e._trail && e._trail.owner === e) return e._trail;
     const rig = e.rig;
-    if (!rig || !rig.bones || !rig.bones.elbowR || !rig.handRLocal) return null;
+    if (!rig || !rig.bones || !rig.bones.wristR || !rig.handRLocal) return null;
     const span = bladePoints(e.weapon.visual, rig.handRLocal, e._blade || (e._blade = { base: new THREE.Vector3(), tip: new THREE.Vector3() }));
     if (!span) return null;
     let trail = null;
     for (const t of this.trails) if (!t.busy) { trail = t; break; }
     if (!trail) return null;
-    trail.attach(e, rig.mesh, rig.bones.elbowR, span.base, span.tip, e.team === 'player' ? 0xbcd0ff : 0xffb070);
+    trail.attach(e, rig.mesh, rig.bones.wristR, span.base, span.tip, e.team === 'player' ? 0xbcd0ff : 0xffb070);
     e._trail = trail;
     return trail;
   }
@@ -131,8 +134,64 @@ export class Combat {
 
   // ------------------------------------------------------------------------------------------ hits
 
-  /** Sweep the attack arc from its previous angle to the current one; each target is hit once per attack. */
+  /**
+   * Hit test for one attacker this frame; each target is hit once per attack. Humanoids with a bladed weapon
+   * sweep the blade itself (grip -> tip, world space, interpolated from last frame's pose) against target
+   * cylinders, so hits land where the weapon visibly is and reach follows the weapon; rigs without a blade
+   * (wolves, bosses) fall back to the authored arc sector.
+   */
   sweep(att) {
+    const a = att.attack, def = a.def, rig = att.rig, w = att.weapon;
+    const span = rig && rig.bones && rig.bones.wristR && rig.handRLocal && w && TRAIL_SPAN[w.visual] ? TRAIL_SPAN[w.visual] : null;
+    if (!span) { this.sweepArc(att); return; }
+    const grip = att._grip || (att._grip = { base: new THREE.Vector3(), tip: new THREE.Vector3(), pBase: new THREE.Vector3(), pTip: new THREE.Vector3(), def: null, lastT: 0 });
+    bladePoints(w.visual, rig.handRLocal, grip); // bind-pose model space
+    grip.base.copy(rig.handRLocal).lerp(grip.base, 0.15); // from just past the grip to the tip
+    boneToWorld(rig.mesh, rig.bones.wristR, grip.base, _b0); grip.base.copy(_b0);
+    boneToWorld(rig.mesh, rig.bones.wristR, grip.tip, _b1); grip.tip.copy(_b1);
+    // first active frame of a (re)started attack: no previous segment to sweep from
+    if (grip.def !== def || a.t <= grip.lastT) { grip.pBase.copy(grip.base); grip.pTip.copy(grip.tip); }
+    grip.def = def; grip.lastT = a.t;
+    const reach = (span[1] + 1.0) * att.scale + 0.6; // coarse cull: arm + blade + margin
+    const ents = this.game.entities;
+    for (let i = 0; i < ents.length; i++) {
+      const t = ents[i];
+      if (t === att || !t.alive || t.team === att.team || a.hitSet.has(t)) continue;
+      const tr = t.radius * t.scale;
+      const dx = t.pos.x - att.pos.x, dz = t.pos.z - att.pos.z, dist = Math.hypot(dx, dz);
+      if (dist > reach + tr) continue;
+      let rel = Math.atan2(dx, dz) - att.yaw; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+      // a target pressed against the attacker is inside the blade's arc: count the body as the hit
+      const hit = (dist < (0.9 + t.radius) * att.scale && Math.abs(rel) < 1.2) || this.bladeHits(grip, t, tr);
+      if (!hit) continue;
+      a.hitSet.add(t);
+      this.applyHit(att, t, def);
+    }
+    grip.pBase.copy(grip.base); grip.pTip.copy(grip.tip);
+    a.lastAngle = (def.arcFrom + (def.arcTo - def.arcFrom) * clamp01((a.t - def.windup) / def.active)) * DEG;
+  }
+
+  /** Does the blade, swept from last frame's segment to this frame's, pass through the target's cylinder? */
+  bladeHits(g, t, tr) {
+    const y0 = t.pos.y - 0.25, y1 = t.pos.y + t.height * t.scale + 0.15, r = tr + BLADE_R;
+    for (let s = 1; s <= BLADE_STEPS; s++) {
+      const ks = s / BLADE_STEPS;
+      for (let j = 0; j < BLADE_SAMPLES; j++) {
+        const kj = j / (BLADE_SAMPLES - 1);
+        // point kj along the blade at sub-step ks between the previous and current segments
+        const bx = g.pBase.x + (g.base.x - g.pBase.x) * ks, by = g.pBase.y + (g.base.y - g.pBase.y) * ks, bz = g.pBase.z + (g.base.z - g.pBase.z) * ks;
+        const tx = g.pTip.x + (g.tip.x - g.pTip.x) * ks, ty = g.pTip.y + (g.tip.y - g.pTip.y) * ks, tz = g.pTip.z + (g.tip.z - g.pTip.z) * ks;
+        const px = bx + (tx - bx) * kj, py = by + (ty - by) * kj, pz = bz + (tz - bz) * kj;
+        if (py < y0 || py > y1) continue;
+        const dx = px - t.pos.x, dz = pz - t.pos.z;
+        if (dx * dx + dz * dz <= r * r) return true;
+      }
+    }
+    return false;
+  }
+
+  /** Sweep the authored arc sector from its previous angle to the current one (rigs without a blade). */
+  sweepArc(att) {
     const a = att.attack, def = a.def;
     const k = clamp01((a.t - def.windup) / def.active);
     const cur = (def.arcFrom + (def.arcTo - def.arcFrom) * k) * DEG;

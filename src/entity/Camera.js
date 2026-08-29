@@ -17,6 +17,7 @@ export class CameraController {
     this.smoothPivot = new THREE.Vector3(); this.pos = new THREE.Vector3();
     this.initialized = false;
     this.shake = 0; this.shakeSeed = 0;
+    this.lunge = 0; this.lungeT = 0; // contact lunge: a short push toward the pivot that springs back (addLunge)
     this.orbitCenter = new THREE.Vector3(); this.orbitR = 16; this.orbitT = 0;
     this.fov = 55;
     /** Over-the-shoulder framing: pivot slides this far to the camera's right (character sits left of centre). */
@@ -30,6 +31,8 @@ export class CameraController {
   /** Set the orbit (screenshot poses / respawn). `side` / `lift` shift the framing for one composition and reset on the next call. */
   setOrbit(yaw, pitch, dist, side = 0, lift = 0) { this.yaw = yaw; this.pitch = pitch; if (dist) this.dist = dist; this.side = side; this.lift = lift; }
   addShake(a) { this.shake = Math.min(1, this.shake + a); }
+  /** Push the camera `a` metres toward the pivot over ~0.2 s (the body driving a cut), springing back. */
+  addLunge(a) { this.lunge = Math.max(this.lunge, a); this.lungeT = 0; }
   /** Horizontal forward direction of the camera (for camera-relative movement). */
   cameraForward(out) { return out.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)); }
 
@@ -87,6 +90,13 @@ export class CameraController {
       const s = this.shake * this.shake * 0.22;
       this.shakeSeed += dt * 38;
       _off.set(Math.sin(this.shakeSeed * 1.3) * s, Math.cos(this.shakeSeed * 1.7) * s, Math.sin(this.shakeSeed * 0.9) * s * 0.5);
+    }
+    if (this.lunge > 0) {
+      this.lungeT += dt;
+      const k = this.lungeT / 0.22, e = k < 1 ? Math.sin(k * Math.PI) : 0; // in fast, out slower
+      if (k >= 1) this.lunge = 0;
+      _v.subVectors(this.smoothPivot, this.pos).normalize().multiplyScalar(this.lunge * e);
+      _off.add(_v);
     }
     cam.position.copy(this.pos).add(_off);
     _look.copy(this.smoothPivot);
