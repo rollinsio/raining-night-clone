@@ -40,33 +40,33 @@ export const MOVESETS = {
   },
   greatsword: {
     light: [
-      { clip: 'light1', windup: 0.24, active: 0.17, recover: 0.42, motion: 1.0, arcFrom: -80, arcTo: 80, stamina: 17, knock: 2.5, step: 1.3 },
-      { clip: 'light2', windup: 0.20, active: 0.16, recover: 0.44, motion: 1.05, arcFrom: 80, arcTo: -80, stamina: 17, knock: 2.5, step: 1.3 },
-      { clip: 'light3', windup: 0.28, active: 0.15, recover: 0.55, motion: 1.45, arcFrom: -28, arcTo: 28, stamina: 20, knock: 4.5, step: 1.9, poiseMul: 1.5 },
+      { clip: 'light1', windup: 0.24, active: 0.34, recover: 0.25, motion: 1.0, arcFrom: -80, arcTo: 80, stamina: 17, knock: 2.5, step: 1.3 },
+      { clip: 'light2', windup: 0.20, active: 0.32, recover: 0.28, motion: 1.05, arcFrom: 80, arcTo: -80, stamina: 17, knock: 2.5, step: 1.3 },
+      { clip: 'light3', windup: 0.28, active: 0.32, recover: 0.38, motion: 1.45, arcFrom: -28, arcTo: 28, stamina: 20, knock: 4.5, step: 1.9, poiseMul: 1.5 },
     ],
-    heavy: { clip: 'heavy', windup: 0.62, active: 0.2, recover: 0.7, motion: 2.3, arcFrom: -32, arcTo: 32, stamina: 32, knock: 6.5, step: 1.6, poiseMul: 2.2 },
+    heavy: { clip: 'heavy', windup: 0.62, active: 0.34, recover: 0.56, motion: 2.3, arcFrom: -32, arcTo: 32, stamina: 32, knock: 6.5, step: 1.6, poiseMul: 2.2 },
   },
   sword: {
     light: [
-      { clip: 'light1', windup: 0.16, active: 0.14, recover: 0.32, motion: 1.0, arcFrom: -75, arcTo: 75, stamina: 12, knock: 1.8, step: 1.0 },
-      { clip: 'light2', windup: 0.14, active: 0.13, recover: 0.34, motion: 1.0, arcFrom: 75, arcTo: -75, stamina: 12, knock: 1.8, step: 1.0 },
-      { clip: 'light3', windup: 0.2, active: 0.14, recover: 0.42, motion: 1.35, arcFrom: -25, arcTo: 25, stamina: 15, knock: 3.5, step: 1.6, poiseMul: 1.4 },
+      { clip: 'light1', windup: 0.16, active: 0.22, recover: 0.24, motion: 1.0, arcFrom: -75, arcTo: 75, stamina: 12, knock: 1.8, step: 1.0 },
+      { clip: 'light2', windup: 0.14, active: 0.21, recover: 0.26, motion: 1.0, arcFrom: 75, arcTo: -75, stamina: 12, knock: 1.8, step: 1.0 },
+      { clip: 'light3', windup: 0.2, active: 0.22, recover: 0.34, motion: 1.35, arcFrom: -25, arcTo: 25, stamina: 15, knock: 3.5, step: 1.6, poiseMul: 1.4 },
     ],
-    heavy: { clip: 'heavy', windup: 0.5, active: 0.18, recover: 0.6, motion: 2.0, arcFrom: -30, arcTo: 30, stamina: 26, knock: 5, step: 1.4, poiseMul: 2 },
+    heavy: { clip: 'heavy', windup: 0.5, active: 0.26, recover: 0.52, motion: 2.0, arcFrom: -30, arcTo: 30, stamina: 26, knock: 5, step: 1.4, poiseMul: 2 },
   },
   soldier: {
     light: [
-      { clip: 'light1', windup: 0.6, active: 0.17, recover: 0.5, motion: 1.0, arcFrom: -75, arcTo: 75, stamina: 0, knock: 2.2, step: 0.9 },
-      { clip: 'light2', windup: 0.38, active: 0.16, recover: 0.65, motion: 1.15, arcFrom: 75, arcTo: -75, stamina: 0, knock: 3.2, step: 1.0 },
+      { clip: 'light1', windup: 0.6, active: 0.26, recover: 0.41, motion: 1.0, arcFrom: -75, arcTo: 75, stamina: 0, knock: 2.2, step: 0.9 },
+      { clip: 'light2', windup: 0.38, active: 0.25, recover: 0.56, motion: 1.15, arcFrom: 75, arcTo: -75, stamina: 0, knock: 3.2, step: 1.0 },
     ],
-    heavy: { clip: 'heavy', windup: 0.95, active: 0.2, recover: 0.85, motion: 1.9, arcFrom: -28, arcTo: 28, stamina: 0, knock: 5.5, step: 1.2, poiseMul: 2 },
+    heavy: { clip: 'heavy', windup: 0.95, active: 0.30, recover: 0.75, motion: 1.9, arcFrom: -28, arcTo: 28, stamina: 0, knock: 5.5, step: 1.2, poiseMul: 2 },
   },
   knight: {
     light: [
-      { clip: 'light1', windup: 0.8, active: 0.2, recover: 0.7, motion: 1.0, arcFrom: -85, arcTo: 85, stamina: 0, knock: 3.5, step: 1.2 },
-      { clip: 'light2', windup: 0.5, active: 0.18, recover: 0.8, motion: 1.1, arcFrom: 85, arcTo: -85, stamina: 0, knock: 4, step: 1.2 },
+      { clip: 'light1', windup: 0.8, active: 0.36, recover: 0.54, motion: 1.0, arcFrom: -85, arcTo: 85, stamina: 0, knock: 3.5, step: 1.2 },
+      { clip: 'light2', windup: 0.5, active: 0.34, recover: 0.64, motion: 1.1, arcFrom: 85, arcTo: -85, stamina: 0, knock: 4, step: 1.2 },
     ],
-    heavy: { clip: 'heavy', windup: 1.15, active: 0.22, recover: 1.0, motion: 2.0, arcFrom: -30, arcTo: 30, stamina: 0, knock: 7, step: 1.6, poiseMul: 2.5 },
+    heavy: { clip: 'heavy', windup: 1.15, active: 0.36, recover: 0.86, motion: 2.0, arcFrom: -30, arcTo: 30, stamina: 0, knock: 7, step: 1.6, poiseMul: 2.5 },
   },
   wolf: {
     light: [
