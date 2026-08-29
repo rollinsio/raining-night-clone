@@ -16,6 +16,7 @@ const _c = new THREE.Color(), _c2 = new THREE.Color();
 const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _t1 = new THREE.Vector3(), _t2 = new THREE.Vector3(), _m = new THREE.Matrix4();
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
+const _q = new THREE.Quaternion();
 const Z = new THREE.Vector3(0, 0, 1);
 const clamp01 = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
 const sm = (t) => { t = clamp01(t); return t * t * (3 - 2 * t); };
@@ -264,14 +265,16 @@ export class Animator {
     this.bones = rig.boneList; this.clips = clips; this.pivot = pivot;
     this.n = this.bones.length;
     this.idx = {}; this.bones.forEach((b, i) => { this.idx[b.name] = i; });
-    this.cur = new Float32Array(this.n * 3 + 4);
-    this.tgt = new Float32Array(this.n * 3 + 4);
+    // channels: 3 Euler angles per bone, 4 whole-body extras, then one twist per bone (rotation about the
+    // bone's own axis applied innermost — the YXZ Euler cannot express it for a raised limb)
+    this.cur = new Float32Array(this.n * 4 + 4);
+    this.tgt = new Float32Array(this.n * 4 + 4);
     this.root = this.bones[0]; this.rootRestY = rootRestY ?? this.root.position.y;
     this.pivotRestY = pivot.position.y;
     this.clip = null; this.name = ''; this.t = 0; this.rate = 14;
     // exact mode (attacks): the clip's curve is applied verbatim after a short crossfade from the pose it
     // interrupted, so fast swings are not smeared by the low-pass below (see play)
-    this.from = new Float32Array(this.n * 3 + 4); this.blend = 0; this.blendT = 0;
+    this.from = new Float32Array(this.n * 4 + 4); this.blend = 0; this.blendT = 0;
     this.ctx = { speed: 0, dur: 1, windup: 0.2, active: 0.15, recover: 0.4, param: 0 };
     /** Optional per-step hook (dt) — used for secondary motion such as cloak lift; also runs in settle(). */
     this.onUpdate = null;
@@ -279,6 +282,7 @@ export class Animator {
   set(name, rx, ry, rz) { const i = this.idx[name]; if (i === undefined) return; this.tgt[i * 3] = rx; this.tgt[i * 3 + 1] = ry; this.tgt[i * 3 + 2] = rz; }
   add(name, rx, ry, rz) { const i = this.idx[name]; if (i === undefined) return; this.tgt[i * 3] += rx; this.tgt[i * 3 + 1] += ry; this.tgt[i * 3 + 2] += rz; }
   extra(k, v) { this.tgt[this.n * 3 + k] = v; }
+  twist(name, v) { const i = this.idx[name]; if (i === undefined) return; this.tgt[this.n * 3 + 4 + i] = v; }
 
   /**
    * Switch clip (no-op if already playing unless restart). `rate` is the low-pass rate the pose eases toward the
@@ -313,8 +317,13 @@ export class Animator {
 
   /** Write the current pose into the bones and pivot. */
   apply() {
-    const cur = this.cur;
-    for (let b = 0; b < this.n; b++) this.bones[b].rotation.set(cur[b * 3], cur[b * 3 + 1], cur[b * 3 + 2]);
+    const cur = this.cur, tw = this.n * 3 + 4;
+    for (let b = 0; b < this.n; b++) {
+      const bone = this.bones[b];
+      bone.rotation.set(cur[b * 3], cur[b * 3 + 1], cur[b * 3 + 2]);
+      const t = cur[tw + b];
+      if (t !== 0) bone.quaternion.multiply(_q.setFromAxisAngle(UP, t)); // innermost: about the bone's local Y
+    }
     const e = this.n * 3;
     this.pivot.position.y = this.pivotRestY + cur[e + E_HIPSY];
     this.pivot.rotation.set(cur[e + E_PITCH], cur[e + E_YAW], cur[e + E_ROLL]);
@@ -353,7 +362,7 @@ const RUN_PH0 = HERO_PH - (40 / 60) * TAU * runCadence(HERO_SPEED);
 // -------------------------------------------------------------------------------------------------
 // Keyed attack clips. A swing is a list of key poses on a normalised clock u — 0..1 windup, 1..2 active,
 // 2..3 recover (ctx.windup / active / recover each stretch their third) — with the easing used to *reach* each
-// key. Bones a key leaves out carry over from the previous key. The Animator plays these exactly (see play's
+// key. A bone value is [rx, ry, rz] or [rx, ry, rz, twist]; bones a key leaves out carry over from the previous key. The Animator plays these exactly (see play's
 // `blend`), so the curve authored here is the curve on screen: an accelerating 'in' into contact and a
 // decelerating 'out' through the follow-through give one continuous whip instead of three eased segments.
 const EASE = {
@@ -367,14 +376,14 @@ const KEY_EXTRA = { hipsY: E_HIPSY, pitch: E_PITCH, roll: E_ROLL };
 function keyed(keys) {
   const names = [];
   for (const k of keys) for (const n in k.pose) if (!names.includes(n)) names.push(n);
-  const m = names.length, n = keys.length, vals = new Float32Array(n * m * 3), us = new Float32Array(n), eases = keys.map((k) => EASE[k.ease || 'inout']);
+  const m = names.length, n = keys.length, vals = new Float32Array(n * m * 4), us = new Float32Array(n), eases = keys.map((k) => EASE[k.ease || 'inout']);
   for (let j = 0; j < m; j++) {
     const name = names[j];
     let first = keys.findIndex((k) => k.pose[name] !== undefined), prev = keys[first].pose[name];
     for (let i = 0; i < n; i++) {
       const v = keys[i].pose[name]; if (v !== undefined) prev = v;
-      const o = (i * m + j) * 3;
-      if (typeof prev === 'number') vals[o] = prev; else { vals[o] = prev[0]; vals[o + 1] = prev[1]; vals[o + 2] = prev[2]; }
+      const o = (i * m + j) * 4;
+      if (typeof prev === 'number') vals[o] = prev; else { vals[o] = prev[0]; vals[o + 1] = prev[1]; vals[o + 2] = prev[2]; vals[o + 3] = prev[3] || 0; }
     }
   }
   keys.forEach((k, i) => { us[i] = k.u; });
@@ -386,11 +395,13 @@ function keyed(keys) {
     else u = 2 + Math.min(1, (t - ctx.active) / ctx.recover);
     let i = 1; while (i < n - 1 && us[i] < u) i++;
     const u0 = us[i - 1], u1 = us[i], k = u1 > u0 ? eases[i](clamp01((u - u0) / (u1 - u0))) : 1;
-    const a = (i - 1) * m * 3, b = i * m * 3;
+    const a = (i - 1) * m * 4, b = i * m * 4;
     for (let j = 0; j < m; j++) {
-      const o = j * 3, x = vals[a + o] + (vals[b + o] - vals[a + o]) * k;
-      if (extra[j] >= 0) P.extra(extra[j], x);
-      else P.set(names[j], x, vals[a + o + 1] + (vals[b + o + 1] - vals[a + o + 1]) * k, vals[a + o + 2] + (vals[b + o + 2] - vals[a + o + 2]) * k);
+      const o = j * 4, x = vals[a + o] + (vals[b + o] - vals[a + o]) * k;
+      if (extra[j] >= 0) { P.extra(extra[j], x); continue; }
+      P.set(names[j], x, vals[a + o + 1] + (vals[b + o + 1] - vals[a + o + 1]) * k, vals[a + o + 2] + (vals[b + o + 2] - vals[a + o + 2]) * k);
+      const t0 = vals[a + o + 3], t1 = vals[b + o + 3];
+      if (t0 !== 0 || t1 !== 0) P.twist(names[j], t0 + (t1 - t0) * k);
     }
   };
 }
@@ -414,9 +425,9 @@ const READY = {
  */
 const LIGHT1_KEYS = [ // right -> left
   { u: 0, pose: READY },
-  { u: 0.8, ease: 'out', pose: { shoulderR: [-1.3, -1.3, -0.25], elbowR: [-1.1, 0, 0], wristR: [-0.1, 0, -0.5], shoulderL: [-0.5, 0.5, 0.6], elbowL: [-1.3, 0, 0],
-      hips: [0, -0.2, 0.03], spine: [-0.02, -0.3, 0], chest: [0, -0.3, 0], head: [0, 0.5, 0], hipsY: -0.07 } },
-  { u: 1.0, ease: 'out', pose: { shoulderR: [-1.35, -1.4, -0.25], wristR: [-0.1, 0, -0.6], hips: [0, -0.24, 0.03], spine: [-0.02, -0.34, 0], chest: [0, -0.34, 0], head: [0, 0.55, 0], hipsY: -0.08 } },
+  { u: 0.8, ease: 'out', pose: { shoulderR: [-1.05, -0.6, -0.25, -1.4], elbowR: [-1.6, 0, 0], wristR: [-0.1, 0, -0.35], shoulderL: [-0.5, 0.5, 0.6], elbowL: [-1.3, 0, 0],
+      hips: [0, -0.12, 0.03], spine: [-0.02, -0.18, 0], chest: [0, -0.18, 0], head: [0, 0.3, 0], hipsY: -0.07 } },
+  { u: 1.0, ease: 'out', pose: { shoulderR: [-1.1, -0.7, -0.25, -1.5], elbowR: [-1.7, 0, 0], wristR: [-0.1, 0, -0.4], hips: [0, -0.14, 0.03], spine: [-0.02, -0.2, 0], chest: [0, -0.2, 0], head: [0, 0.33, 0], hipsY: -0.08 } },
   { u: 1.55, ease: 'in', pose: { shoulderR: [-1.5, -0.1, -0.25], elbowR: [-0.15, 0, 0], wristR: [0.05, 0, 0.15], shoulderL: [-0.3, 0.2, 0.5], elbowL: [-0.9, 0, 0],
       hips: [0.05, 0.25, 0], spine: [0.18, 0.15, 0], chest: [0.15, 0.2, 0], head: [-0.15, -0.35, 0], ...deepLegs, hipsY: -0.12 } },
   { u: 2.0, ease: 'out', pose: { shoulderR: [-1.35, 1.15, -0.25], elbowR: [-0.45, 0, 0], wristR: [0.1, 0, 0.55], shoulderL: [-0.3, 0.1, 0.45],
@@ -426,9 +437,9 @@ const LIGHT1_KEYS = [ // right -> left
 ];
 const LIGHT2_KEYS = [ // left -> right (backhand)
   { u: 0, pose: READY },
-  { u: 0.8, ease: 'out', pose: { shoulderR: [-1.6, 1.2, -0.2], elbowR: [-1.2, 0, 0], wristR: [-0.1, 0, 0.5], shoulderL: [-0.45, 0.25, 0.5], elbowL: [-1.3, 0, 0],
-      hips: [0, 0.2, -0.03], spine: [-0.02, 0.3, 0], chest: [0, 0.3, 0], head: [0, -0.5, 0], hipsY: -0.07 } },
-  { u: 1.0, ease: 'out', pose: { shoulderR: [-1.65, 1.3, -0.2], wristR: [-0.1, 0, 0.6], hips: [0, 0.24, -0.03], spine: [-0.02, 0.34, 0], chest: [0, 0.34, 0], head: [0, -0.55, 0], hipsY: -0.08 } },
+  { u: 0.8, ease: 'out', pose: { shoulderR: [-1.25, 0.8, -0.2, 1.4], elbowR: [-1.6, 0, 0], wristR: [-0.1, 0, 0], shoulderL: [-0.45, 0.25, 0.5], elbowL: [-1.3, 0, 0],
+      hips: [0, 0.12, -0.03], spine: [-0.02, 0.18, 0], chest: [0, 0.18, 0], head: [0, -0.3, 0], hipsY: -0.07 } },
+  { u: 1.0, ease: 'out', pose: { shoulderR: [-1.3, 0.9, -0.2, 1.5], elbowR: [-1.7, 0, 0], wristR: [-0.1, 0, 0], hips: [0, 0.14, -0.03], spine: [-0.02, 0.2, 0], chest: [0, 0.2, 0], head: [0, -0.33, 0], hipsY: -0.08 } },
   { u: 1.55, ease: 'in', pose: { shoulderR: [-1.5, 0.1, -0.2], elbowR: [-0.15, 0, 0], wristR: [0.05, 0, -0.15], shoulderL: [-0.3, 0.2, 0.5], elbowL: [-0.9, 0, 0],
       hips: [0.05, -0.25, 0], spine: [0.2, -0.15, 0], chest: [0.15, -0.2, 0], head: [-0.15, 0.35, 0], ...deepLegs, hipsY: -0.12 } },
   { u: 2.0, ease: 'out', pose: { shoulderR: [-1.3, -1.4, -0.2], elbowR: [-0.45, 0, 0], wristR: [0.1, 0, -0.55], shoulderL: [-0.35, 0.35, 0.55],

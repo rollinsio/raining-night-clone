@@ -26,7 +26,7 @@ src/world/Structures.js    buildable kits: church(), fort(), ruin(), catacombEnt
 src/entity/Entity.js       base: object3d, hp/maxHp, stamina, poise, radius, alive, update(dt), takeHit(hit)
 src/entity/Humanoid.js     low-poly faceless rig from primitives + procedural animation (idle, run, roll, hit, death); attacks are keyed pose clips (`keyed()`), played exactly after a short crossfade
 src/entity/Player.js       controller: movement rel. to camera, sprint, roll (i-frames), lock-on, light/heavy combos, skill, ultimate, stamina/FP, no fall damage
-src/entity/Camera.js       third-person orbit w/ lock-on framing, collision with terrain, shake
+src/entity/Camera.js       third-person orbit w/ lock-on framing, collision with terrain, shake, contact lunge
 src/entity/Enemy.js        base AI FSM: idle/patrol/alert/chase/attack/recover/stagger/dead; telegraphs; drops runes
 src/entity/enemies/*.js    Soldier, Wolf, Knight, Archer, Bat, Troll
 src/entity/bosses/Boss.js  boss base: phases, health bar hookup, arena, intro card, death → ring reset

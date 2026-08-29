@@ -9,6 +9,8 @@ skeleton build touched every folder once — later builders own their folders fr
 - `combat/Combat.js` — bladed humanoids hit-test the actual blade: grip→tip in world space (wrist bone), swept from last frame's segment (4 sub-steps × 5 points) against target cylinders; targets pressed against the attacker still count. Reach now follows the weapon (`TRAIL_SPAN`). Wolves/bosses keep the arc-sector path (`sweepArc`). Trail bound to `wristR` (the wrist rotates during swings now). Matrices refreshed before the sweep.
 - `entity/Player.js`, `entity/Enemy.js` — attacks play with `blend` (70 / 100 ms); root-motion `step` lands as a bell-shaped lunge over the active frames (same distance, peak velocity into contact) instead of constant velocity.
 - `combat/Pose.js` — contact point read off the wrist bone.
+- `entity/Humanoid.js` (second pass) — Animator gains a per-bone **twist** channel (`P.twist(name, rad)`, or a 4th value in a `keyed()` pose): a rotation about the bone's own axis applied innermost, which the YXZ Euler cannot express for a raised limb. Used to fold the forearm *back* instead of up: the horizontal cuts now chamber with the blade cocked straight back, horizontal, beside the swinging shoulder (light1 right, light2 backhand across to the left) and unwind through the cut.
+- `entity/Camera.js`, `entity/Player.js` — `addLunge(m)`: a 0.22 s push of the camera toward the pivot that springs back, fired on the first active frame of a player attack (0.12 m light, 0.22 m heavy).
 
 ## Android conversion — portrait orientation (2026-08-28)
 

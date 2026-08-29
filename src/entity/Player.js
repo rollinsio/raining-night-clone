@@ -214,6 +214,7 @@ export class Player extends Entity {
       a.phase = 'windup'; this.decel(dt);
       if (this.lockTarget) this.faceToward(this.lockTarget.pos.x, this.lockTarget.pos.z, dt, 7);
     } else if (a.t < ta) {
+      if (a.phase !== 'active') this.game.cameraCtl.addLunge(a.heavy ? 0.22 : 0.12); // first active frame
       a.phase = 'active';
       if (def.ranged && !a.fired) { a.fired = true; this.fireRanged(def); }
       // root motion: the step lands as a bell-shaped lunge (same distance, peak velocity into contact) so the
