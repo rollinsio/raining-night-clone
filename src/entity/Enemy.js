@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import { Entity } from './Entity.js';
+import { setHitCtx } from './Humanoid.js';
 import { WEAPONS, MOVESETS } from '../combat/Weapons.js';
 import { makeContactBlob } from '../combat/Arena.js';
 
@@ -154,7 +155,7 @@ export class Enemy extends Entity {
       case 'patrol': {
         if (this.aggro) { this.setState('alert'); break; }
         const d = this.moveToward(this.dest.x, this.dest.z, this.walkSpeed, dt);
-        anim.play('run'); anim.ctx.speed = 0;
+        anim.play('run'); anim.ctx.speed = 0; anim.ctx.mps = this.walkSpeed;
         if (d < 0.8 || this.stateT > 12) { this.waitT = this.rng.range(1.5, 5); this.setState('idle'); }
         break;
       }
@@ -168,7 +169,7 @@ export class Enemy extends Entity {
         this.cooldown -= dt;
         if (dist > this.attackRange * 0.9 + 0.2) {
           this.moveToward(player.pos.x, player.pos.z, this.runSpeed, dt);
-          anim.play('run'); anim.ctx.speed = 0.75;
+          anim.play('run'); anim.ctx.speed = 0.75; anim.ctx.mps = this.runSpeed;
         } else {
           if (this.cooldown <= 0) { this.startAttack(this.pickAttack()); break; }
           if (this.considerGuard(player, dist)) { this.setState('guard'); this.guarding = true; anim.play('guard', { restart: true }); break; }
@@ -250,14 +251,15 @@ export class Enemy extends Entity {
     if (this.state !== 'attack' && this.state !== 'stagger') {
       // heavy blows (greatsword / charged) get the held hit-stop recoil if the rig has one, light hits the flinch
       const heavy = (hit && hit.poise > 28) && this.anim.clips.recoil;
-      this.setState('hit'); this.anim.ctx.dur = heavy ? 0.42 : 0.32; this.anim.play(heavy ? 'recoil' : 'hit', { restart: true, rate: 26 });
+      this.setState('hit'); this.anim.ctx.dur = heavy ? 0.42 : 0.32; setHitCtx(this.anim.ctx, hit, this.yaw);
+      this.anim.play(heavy ? 'recoil' : 'hit', { restart: true, blend: 0.03 });
     }
     this.game.combat.hurtDust(this, hit, 0.6);
   }
   onStagger(hit) {
     if (!this.aggro) this.setAggro();
     this.attack.phase = 'none'; this.glow = 0; this.telegraph = 0; this._glowDirty = true; this.guarding = false;
-    this.setState('stagger'); this.anim.ctx.dur = 0.9; this.anim.play('stagger', { restart: true, rate: 16 });
+    this.setState('stagger'); this.anim.ctx.dur = 0.9; setHitCtx(this.anim.ctx, hit, this.yaw); this.anim.play('stagger', { restart: true, blend: 0.05 });
     this.game.combat.hurtDust(this, hit, 1.2);
   }
   dispose() { super.dispose(); if (this.bladeMat) this.bladeMat.dispose(); }

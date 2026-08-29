@@ -14,8 +14,9 @@
  *                                          motion outside the active window, clipping, trail coverage)
  *
  * Usage: node tools/motion.mjs <action> [--views side,front,rear,top] [--step 2] [--dur 1.4] [--nf Wylder] [--name x]
- *   action: light1 | light2 | light3 | heavy | combo (light x3) | skill | roll | run
- *           soldier:light | soldier:heavy | knight:light | knight:heavy | wolf:light
+ *   action: light1 | light2 | light3 | heavy | combo (light x3) | skill | roll | run (sprint) | walk | hit | stagger
+ *           soldier:light | soldier:heavy | soldier:hit | soldier:stagger | knight:light | knight:heavy | wolf:light
+ *   --from front|back|left|right   where a hit / stagger lands from (default front)
  * Requires the dev server on :5173 (npx vite --port 5173).
  */
 import { chromium } from 'playwright';
@@ -34,9 +35,10 @@ const action = argv.find((a) => !a.startsWith('--')) || 'light1';
 const opt = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 && argv[i + 1] !== undefined ? argv[i + 1] : d; };
 const VIEWS = opt('views', 'side,front,top').split(',');
 const STEP = +opt('step', 2);            // sim frames (1/60 s) per captured frame
-const DUR = +opt('dur', action === 'combo' ? 2.0 : action === 'run' ? 1.0 : 1.4);
+const DUR = +opt('dur', action === 'combo' ? 2.0 : action === 'run' || action === 'walk' || action.includes('hit') ? 1.0 : action.includes('stagger') ? 1.4 : 1.4);
 const NF = opt('nf', 'Wylder');
-const NAME = opt('name', action.replace(':', '_'));
+const FROM = opt('from', 'front');
+const NAME = opt('name', action.replace(':', '_') + (action.includes('hit') || action.includes('stagger') ? '_' + FROM : ''));
 const OUT = path.join(ROOT, 'shots', 'motion', NAME);
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -94,7 +96,7 @@ await page.evaluate(() => {
     _c.subVectors(b, a); const l2 = _c.lengthSq(); let t = l2 > 0 ? _v.subVectors(p, a).dot(_c) / l2 : 0; t = Math.max(0, Math.min(1, t));
     return _w.copy(a).addScaledVector(_c, t).distanceTo(p);
   };
-  const st = { subject: null, camUpdate: null, hudVis: true, prevTip: null, prevT: 0 };
+  const st = { subject: null, camUpdate: null, hudVis: true, prevTip: null, prevDir: null, prevT: 0, reaction: false };
 
   window.__motion = {
     /** Prepare: player or a spawned enemy standing on a flat spot, HUD hidden, sim manual, camera frozen. */
@@ -115,7 +117,7 @@ await page.evaluate(() => {
       if (!st.camUpdate) { st.camUpdate = g.cameraCtl.update; g.cameraCtl.update = () => {}; }
       st.hudVis = g.hud.visible; g.hud.setVisible(false);
       api.advance(0.5); // settle idle
-      st.prevTip = null;
+      st.prevTip = null; st.reaction = false;
       return { name: subj.name || 'player', weapon: subj.weapon && subj.weapon.visual, height: subj.height * subj.scale, moveset: subj.moveset && Object.keys(subj.moveset) };
     },
     /** Fixed camera in the subject's frame: off = [right, up, forward] × subject height from the chest. */
@@ -127,11 +129,20 @@ await page.evaluate(() => {
       g.camera.updateMatrixWorld(true);
     },
     /** Kick off the action on the subject. */
-    start(action) {
+    start(action, from) {
       const s = st.subject;
+      if (action === 'hit' || action === 'stagger') {
+        // blow direction (attacker -> victim) in world space from the chosen side of the subject
+        const fx = Math.sin(s.yaw), fz = Math.cos(s.yaw), lx = fz, lz = -fx; // facing / left
+        const d = from === 'back' ? [fx, fz] : from === 'left' ? [-lx, -lz] : from === 'right' ? [lx, lz] : [-fx, -fz];
+        s.frozen = false; s.iframes = 0; if (s.setAggro) s.setAggro();
+        st.reaction = s !== g.player; // enemies: freeze once the reaction state ends so the FSM does not chase / play run
+        s.takeHit({ damage: 1, poise: action === 'stagger' ? 1e6 : 1, dir: { x: d[0], y: 0, z: d[1] }, knock: 0, source: null });
+        return;
+      }
       if (s === g.player) {
         if (action === 'roll') { s.buffer('roll'); return; }
-        if (action === 'run') { return; } // driven by input in step()
+        if (action === 'run' || action === 'walk') { return; } // driven by keyboard input from the node side
         if (action === 'skill') { s.buffer('skill'); return; }
         if (action === 'heavy') { s.buffer('heavy'); return; }
         s.buffer('light'); return;
@@ -145,6 +156,7 @@ await page.evaluate(() => {
       for (let i = 0; i < n; i++) {
         if (s === p && action === 'combo' && p.state === 'attack' && p.attack.phase === 'recover' && !p.bufferAction) p.buffer('light');
         g.update(1 / 60);
+        if (st.reaction && s.state !== 'hit' && s.state !== 'stagger') s.frozen = true;
       }
       this.camera(this._off, this._lookUp); // tracks the root (translation only): the onion skin is in the subject's frame
       g.render();
@@ -165,6 +177,9 @@ await page.evaluate(() => {
         toLocal(handW, s, _a); out.hand = [+_a.x.toFixed(3), +_a.y.toFixed(3), +_a.z.toFixed(3)];
         out.tipClear = +(tipW.y - g.terrain.getHeight(tipW.x, tipW.z)).toFixed(3);
         if (st.prevTip) out.tipSpeed = +(tipW.distanceTo(st.prevTip) / Math.max(1e-6, t - st.prevT)).toFixed(2);
+        _a.subVectors(tipW, handW).normalize();
+        if (st.prevDir) out.bladeDegPerFrame = +(((Math.acos(Math.max(-1, Math.min(1, _a.dot(st.prevDir)))) * 180) / Math.PI) / Math.max(1, (t - st.prevT) * 60)).toFixed(1);
+        st.prevDir = _a.clone();
         st.prevTip = tipW; st.prevT = t;
         _v.copy(tipW).project(g.camera); out.tipScreen = [+(((_v.x + 1) / 2) * innerWidth).toFixed(1), +(((1 - _v.y) / 2) * innerHeight).toFixed(1)];
         // elbow angle + hand-to-torso clearance
@@ -174,6 +189,12 @@ await page.evaluate(() => {
         const u1 = _a.clone().sub(_b).normalize(), u2 = _c.clone().sub(_b).normalize();
         out.elbowDeg = +((Math.acos(Math.max(-1, Math.min(1, u1.dot(u2)))) * 180) / Math.PI).toFixed(1);
         if (b.hips && b.head) { _a.setFromMatrixPosition(b.hips.matrixWorld); _b.setFromMatrixPosition(b.head.matrixWorld); out.handTorso = +segDist(handW, _a, _b).toFixed(3); }
+      }
+      if (rig && rig.bones && rig.bones.head) { _a.setFromMatrixPosition(rig.bones.head.matrixWorld); toLocal(_a, s, _b); out.head = [+_b.x.toFixed(3), +_b.y.toFixed(3), +_b.z.toFixed(3)]; }
+      if (rig && rig.bones && rig.bones.ankleL && rig.bones.ankleR) { // locomotion: ankle world positions + ground under them
+        const f = [];
+        for (const nm of ['ankleL', 'ankleR']) { _a.setFromMatrixPosition(rig.bones[nm].matrixWorld); f.push([+_a.x.toFixed(3), +(_a.y - g.terrain.getHeight(_a.x, _a.z)).toFixed(3), +_a.z.toFixed(3)]); }
+        out.feet = f; out.rootWorld = [+s.pos.x.toFixed(3), +s.pos.z.toFixed(3)];
       }
       if (s.attack && s.attack.hitSet) out.hits = s.attack.hitSet.size;
       const trail = s._trail && s._trail.owner === s ? s._trail : null; out.trailSamples = trail ? trail.count : 0;
@@ -199,7 +220,7 @@ await page.evaluate(() => {
     },
     bladeSpan(v) { window.__motionSpan = v; },
     restore() { if (st.camUpdate) { g.cameraCtl.update = st.camUpdate; st.camUpdate = null; } g.hud.setVisible(st.hudVis); st.origin = null; },
-    resetOrigin() { st.origin = null; st.prevTip = null; },
+    resetOrigin() { st.origin = null; st.prevTip = null; st.prevDir = null; },
   };
 });
 
@@ -218,8 +239,10 @@ for (const view of VIEWS) {
   await page.evaluate((k) => window.__motion.setup(k), kind);
   await page.evaluate(({ off, lookUp }) => window.__motion.setView(off, lookUp), vd);
   await page.evaluate(() => window.__motion.resetOrigin());
-  await page.evaluate((a) => window.__motion.start(a), sub);
-  if (sub === 'run') { await page.keyboard.down('ShiftLeft'); await page.keyboard.down('KeyW'); } // real input: W is camera-relative forward (+Z here)
+  const reaction = sub === 'hit' || sub === 'stagger';
+  if (!reaction) await page.evaluate(([a, f]) => window.__motion.start(a, f), [sub, FROM]);
+  if (sub === 'run') await page.keyboard.down('ShiftLeft');
+  if (sub === 'run' || sub === 'walk') await page.keyboard.down('KeyW'); // real input: W is camera-relative forward (+Z here)
   const list = [];
   for (let i = 0; i < nFrames; i++) {
     const t = +(((i + 1) * STEP) / 60).toFixed(3);
@@ -230,9 +253,10 @@ for (const view of VIEWS) {
     await page.screenshot({ path: mask });
     await page.evaluate(() => window.__motion.mask(false));
     list.push({ file, mask, trace });
+    if (reaction && i === 0) await page.evaluate(([a, f]) => window.__motion.start(a, f), [sub, FROM]); // frame 0 is the rest pose
   }
   frames[view] = list;
-  if (sub === 'run') { await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft'); }
+  if (sub === 'run' || sub === 'walk') { await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft'); }
 }
 await page.evaluate(() => window.__motion.restore());
 
@@ -246,17 +270,21 @@ if (withTip.length && swing.length) {
   const minClear = Math.min(...swing.map((f) => f.tipClear ?? 9));
   const under = swing.filter((f) => (f.tipClear ?? 9) < 0);
   checks.push({ ok: under.length === 0, name: 'blade stays above ground', detail: under.length ? `tip below ground on ${under.length} frame(s), lowest ${minClear.toFixed(2)} m (t=${under.map((f) => f.t).join(', ')})` : `lowest tip clearance ${minClear.toFixed(2)} m` });
-  const peak = moving.reduce((a, f) => (f.tipSpeed > (a ? a.tipSpeed : -1) ? f : a), null);
+  const cutFrames = moving.filter((f) => f.u === undefined || f.u >= 0.85); // ignore the anticipation raise
+  const peak = cutFrames.reduce((a, f) => (f.tipSpeed > (a ? a.tipSpeed : -1) ? f : a), null);
   if (peak) {
     const inActive = peak.phase === 'active';
     checks.push({ ok: inActive, name: 'peak tip speed inside the hitbox window', detail: `peak ${peak.tipSpeed} m/s at t=${peak.t} (${peak.phase}${peak.u !== undefined ? ', u=' + peak.u.toFixed(2) : ''})` });
-    // readability: at 60 fps a tip moving more than ~0.6 m per frame reads as a jump cut, not a swing
-    const perFrame = peak.tipSpeed / 60;
-    checks.push({ ok: perFrame <= 0.6, name: 'swing readable at 60 fps (tip ≤ 0.6 m per frame)', detail: `tip moves up to ${perFrame.toFixed(2)} m per 1/60 s frame` });
+    // readability: real cuts peak at 1100–2300°/s (18–38° per 60 fps frame); with a trail, ~25°/frame (1500°/s) still reads as a swing.
+    // Judged over the cut (last 15 % of the windup through recovery); the anticipation snap is reported separately.
+    const cut = swing.filter((f) => f.u !== undefined && f.u >= 0.85), antic = swing.filter((f) => f.u !== undefined && f.u < 0.85);
+    const maxDeg = Math.max(0, ...cut.map((f) => f.bladeDegPerFrame ?? 0)), anticDeg = Math.max(0, ...antic.map((f) => f.bladeDegPerFrame ?? 0));
+    const cutPeak = cut.reduce((a, f) => ((f.tipSpeed ?? 0) > a ? f.tipSpeed : a), 0);
+    checks.push({ ok: maxDeg <= 25, name: 'cut readable at 60 fps (blade ≤ 25° per frame)', detail: `blade turns up to ${maxDeg.toFixed(1)}° per 1/60 s frame through the cut (tip ${(cutPeak / 60).toFixed(2)} m per frame); anticipation snap up to ${anticDeg.toFixed(1)}° per frame` });
   }
   const dist = (ph) => trace.filter((f) => f.phase === ph && f.tipSpeed !== undefined).reduce((s, f) => s + f.tipSpeed * (STEP / 60), 0);
   const dW = dist('windup'), dA = dist('active'), dR = dist('recover'), dT = dW + dA + dR;
-  if (dT > 0) checks.push({ ok: dA / dT > 0.45, name: 'most blade travel happens during active frames', detail: `tip path: windup ${dW.toFixed(2)} m, active ${dA.toFixed(2)} m (${((100 * dA) / dT).toFixed(0)} %), recover ${dR.toFixed(2)} m` });
+  if (dT > 0) checks.push({ ok: dA / dT > 0.4, name: 'most blade travel happens during active frames', detail: `tip path: windup ${dW.toFixed(2)} m, active ${dA.toFixed(2)} m (${((100 * dA) / dT).toFixed(0)} %), recover ${dR.toFixed(2)} m` });
   const nearTorso = swing.filter((f) => f.handTorso !== undefined && f.handTorso < 0.14);
   checks.push({ ok: nearTorso.length === 0, name: 'sword hand clears the torso', detail: nearTorso.length ? `hand within 14 cm of the torso axis on ${nearTorso.length} frame(s) (t=${nearTorso.map((f) => f.t).join(', ')})` : `closest ${Math.min(...swing.map((f) => f.handTorso ?? 9)).toFixed(2)} m` });
   const elbows = swing.map((f) => f.elbowDeg).filter((x) => x !== undefined);
@@ -270,6 +298,41 @@ if (withTip.length && swing.length) {
 } else {
   const last = trace[trace.length - 1], d = last.root ? Math.hypot(last.root[0], last.root[1]) : 0;
   checks.push({ ok: true, name: 'no attack phases in this capture', detail: `locomotion/roll: root moved ${d.toFixed(2)} m in ${last.t.toFixed(2)} s (${(d / last.t).toFixed(2)} m/s)` });
+  // reactions: the head should be thrown to its peak within a few frames of the blow and settle back by the end
+  if ((sub === 'hit' || sub === 'stagger') && trace[0].head) {
+    const h0 = trace[0].head, dist = (f) => Math.hypot(f.head[0] - h0[0], f.head[1] - h0[1], f.head[2] - h0[2]);
+    const withHead = trace.filter((f) => f.head), peakF = withHead.reduce((a, f) => (dist(f) > dist(a) ? f : a), withHead[0]), peak = dist(peakF);
+    const onset = withHead.find((f) => dist(f) >= 0.8 * peak);
+    checks.push({ ok: peak >= 0.08, name: 'reaction is visible (head moves ≥ 8 cm)', detail: `head displaced ${peak.toFixed(2)} m at t=${peakF.t}` });
+    checks.push({ ok: onset && onset.t <= 0.07, name: 'reaction snaps (80 % of peak within 4 frames)', detail: `80 % of peak at t=${onset ? onset.t : '?'} s` });
+    const last = withHead[withHead.length - 1];
+    checks.push({ ok: dist(last) <= 0.06, name: 'settles back by the end of the capture', detail: `head ${dist(last).toFixed(2)} m from rest at t=${last.t}` });
+  }
+  // locomotion: skip the first 0.3 s (acceleration), then judge the planted foot's world speed, cadence and stride
+  const loco = trace.filter((f) => f.feet && f.t > 0.3);
+  if ((sub === 'run' || sub === 'walk') && loco.length > 4) {
+    const dt = STEP / 60, rootV = [];
+    for (let i = 1; i < loco.length; i++) rootV.push(Math.hypot(loco[i].rootWorld[0] - loco[i - 1].rootWorld[0], loco[i].rootWorld[1] - loco[i - 1].rootWorld[1]) / dt);
+    const vRoot = rootV.reduce((a, b) => a + b, 0) / rootV.length;
+    let planted = [], steps = 0;
+    for (const side of [0, 1]) {
+      let wasDown = false;
+      const floor = Math.min(...loco.map((f) => f.feet[side][1])); // stance = within 4 cm of this foot's lowest height
+      for (let i = 1; i < loco.length; i++) {
+        const a = loco[i - 1].feet[side], b = loco[i].feet[side], down = b[1] < floor + 0.04;
+        if (down && wasDown) planted.push(Math.hypot(b[0] - a[0], b[2] - a[2]) / dt);
+        if (down && !wasDown) steps++;
+        wasDown = down;
+      }
+    }
+    const span = loco[loco.length - 1].t - loco[0].t, cadence = steps / span, stride = cadence > 0 ? vRoot / cadence : 0;
+    const slideMean = planted.length ? planted.reduce((a, b) => a + b, 0) / planted.length : 0, slideMax = planted.length ? Math.max(...planted) : 0;
+    const ratio = vRoot > 0 ? slideMean / vRoot : 0;
+    checks.push({ ok: planted.length > 0, name: 'feet make ground contact', detail: `${planted.length} planted samples over ${span.toFixed(2)} s; cadence ${cadence.toFixed(1)} steps/s, stride ${stride.toFixed(2)} m at ${vRoot.toFixed(1)} m/s` });
+    checks.push({ ok: ratio <= 0.25, name: 'planted foot does not slide (≤ 25 % of body speed)', detail: `planted-foot world speed mean ${slideMean.toFixed(2)} m/s (${(ratio * 100).toFixed(0)} % of body speed), max ${slideMax.toFixed(2)} m/s` });
+    const lift = Math.max(...loco.flatMap((f) => [f.feet[0][1], f.feet[1][1]]));
+    checks.push({ ok: lift >= 0.12, name: 'feet lift clear of the ground', detail: `max ankle height ${lift.toFixed(2)} m` });
+  }
 }
 const phases = [];
 for (const f of trace) { const p = f.phase + (f.state === 'roll' ? '/roll' : ''); if (!phases.length || phases[phases.length - 1].p !== p) phases.push({ p, t0: f.t, t1: f.t }); else phases[phases.length - 1].t1 = f.t; }

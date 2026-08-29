@@ -170,8 +170,10 @@ function recoil(t, P, ctx) {
 }
 /** Gameplay flinch: a shorter, harder version of the shared hit (torso bends away, arms thrown out). */
 function hit(t, P, ctx) {
-  const k = 1 - sm(t / (ctx.dur || 0.32));
-  P.set('spine', -0.36 * k, 0, 0.12 * k); P.set('chest', -0.3 * k, 0.1 * k, 0.1 * k); P.set('head', -0.42 * k, 0, -0.08 * k);
+  // directional: bends back (forward when struck from behind) and rolls / turns away from the blow's lateral side
+  const k = 1 - sm(t / (ctx.dur || 0.32)), m = ctx.param || 0, b = 1 - 2 * (ctx.back || 0);
+  P.set('spine', -0.36 * k * b, 0.1 * k * m, 0.12 * k - 0.25 * k * m); P.set('chest', -0.3 * k * b, 0.1 * k + 0.1 * k * m, 0.1 * k - 0.12 * k * m); P.set('head', -0.42 * k * b, 0.3 * k * m, -0.08 * k - 0.1 * k * m);
+  P.set('hips', 0, -0.1 * k * m, 0.05 * k * m);
   P.set('shoulderL', -0.8 * k, 0.2 * k, 0.8 * k + 0.15); P.set('shoulderR', -0.6 * k, -0.2 * k, -0.8 * k - 0.15);
   P.set('elbowL', -0.7 * k, 0, 0); P.set('elbowR', -0.9 * k, 0, 0);
   P.set('hipL', -0.3 * k, 0, 0.08); P.set('kneeL', 0.55 * k, 0, 0); P.set('hipR', 0.3 * k, 0, -0.1); P.set('kneeR', 0.3 * k, 0, 0);
