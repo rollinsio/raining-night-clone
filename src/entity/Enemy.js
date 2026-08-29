@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import { Entity } from './Entity.js';
+import { setHitCtx } from './Humanoid.js';
 import { WEAPONS, MOVESETS } from '../combat/Weapons.js';
 import { makeContactBlob } from '../combat/Arena.js';
 
@@ -250,14 +251,15 @@ export class Enemy extends Entity {
     if (this.state !== 'attack' && this.state !== 'stagger') {
       // heavy blows (greatsword / charged) get the held hit-stop recoil if the rig has one, light hits the flinch
       const heavy = (hit && hit.poise > 28) && this.anim.clips.recoil;
-      this.setState('hit'); this.anim.ctx.dur = heavy ? 0.42 : 0.32; this.anim.play(heavy ? 'recoil' : 'hit', { restart: true, rate: 26 });
+      this.setState('hit'); this.anim.ctx.dur = heavy ? 0.42 : 0.32; setHitCtx(this.anim.ctx, hit, this.yaw);
+      this.anim.play(heavy ? 'recoil' : 'hit', { restart: true, blend: 0.03 });
     }
     this.game.combat.hurtDust(this, hit, 0.6);
   }
   onStagger(hit) {
     if (!this.aggro) this.setAggro();
     this.attack.phase = 'none'; this.glow = 0; this.telegraph = 0; this._glowDirty = true; this.guarding = false;
-    this.setState('stagger'); this.anim.ctx.dur = 0.9; this.anim.play('stagger', { restart: true, rate: 16 });
+    this.setState('stagger'); this.anim.ctx.dur = 0.9; setHitCtx(this.anim.ctx, hit, this.yaw); this.anim.play('stagger', { restart: true, blend: 0.05 });
     this.game.combat.hurtDust(this, hit, 1.2);
   }
   dispose() { super.dispose(); if (this.bladeMat) this.bladeMat.dispose(); }

@@ -498,6 +498,17 @@ const HEAVY_KEYS = [
   { u: 3.0, ease: 'inout', pose: HEAVY_READY },
 ];
 
+/**
+ * Resolve a blow's direction into the reaction clips' ctx: param = lateral component in the victim's frame (−1..1,
+ * positive = the blow travels toward the victim's left), back = 1 when it lands from behind (bend forward, not back).
+ */
+export function setHitCtx(ctx, hit, yaw) {
+  const d = hit && hit.dir;
+  if (!d) { ctx.param = 0; ctx.back = 0; return; }
+  const s = Math.sin(-yaw), c = Math.cos(-yaw), rx = d.x * c + d.z * s, rz = -d.x * s + d.z * c; // world -> victim frame
+  ctx.param = Math.max(-1, Math.min(1, rx)); ctx.back = clamp01(rz);
+}
+
 export const HUMANOID_CLIPS = {
   idle(t, P) {
     const b = Math.sin(t * 1.7);
@@ -561,8 +572,10 @@ export const HUMANOID_CLIPS = {
   light3: keyed(LIGHT3_KEYS),
   heavy: keyed(HEAVY_KEYS),
   hit(t, P, ctx) {
-    const k = 1 - sm(t / (ctx.dur || 0.4));
-    P.set('spine', -0.3 * k, 0, 0); P.set('chest', -0.25 * k, 0.1 * k, 0); P.set('head', -0.35 * k, 0, 0);
+    // flinch away from the blow: bend back (forward when struck from behind), roll and turn the head off the lateral side
+    const k = 1 - sm(t / (ctx.dur || 0.4)), m = ctx.param || 0, b = 1 - 2 * (ctx.back || 0);
+    P.set('spine', -0.3 * k * b, 0.1 * k * m, -0.22 * k * m); P.set('chest', -0.25 * k * b, 0.1 * k + 0.1 * k * m, -0.12 * k * m); P.set('head', -0.35 * k * b, 0.3 * k * m, -0.1 * k * m);
+    P.set('hips', 0, -0.08 * k * m, 0.05 * k * m);
     P.set('shoulderL', -0.7 * k, 0, 0.6 * k + 0.15); P.set('shoulderR', -0.7 * k, 0, -0.6 * k - 0.15);
     P.set('elbowL', -0.9 * k, 0, 0); P.set('elbowR', -0.9 * k, 0, 0);
     P.set('hipL', -0.2 * k, 0, 0.08); P.set('kneeL', 0.4 * k, 0, 0); P.set('hipR', 0.1 * k, 0, -0.08); P.set('kneeR', 0.35 * k, 0, 0);
@@ -570,9 +583,9 @@ export const HUMANOID_CLIPS = {
     P.extra(E_HIPSY, -0.08 * k);
   },
   stagger(t, P, ctx) {
-    const k = 1 - sm(t / (ctx.dur || 0.8));
+    const k = 1 - sm(t / (ctx.dur || 0.8)), m = ctx.param || 0, b = 1 - 2 * (ctx.back || 0);
     const w = Math.sin(t * 9) * 0.15 * k;
-    P.set('spine', -0.45 * k, w, 0); P.set('chest', -0.35 * k, 0, 0); P.set('head', -0.5 * k, 0, w);
+    P.set('spine', -0.45 * k * b, w + 0.12 * k * m, -0.3 * k * m); P.set('chest', -0.35 * k * b, 0, -0.15 * k * m); P.set('head', -0.5 * k * b, 0.25 * k * m, w - 0.1 * k * m);
     P.set('shoulderL', -1.0 * k, 0, 0.9 * k + 0.15); P.set('shoulderR', -1.0 * k, 0, -0.9 * k - 0.15);
     P.set('elbowL', -0.7 * k, 0, 0); P.set('elbowR', -0.7 * k, 0, 0);
     P.set('hipL', -0.35 * k, 0, 0.15); P.set('kneeL', 0.6 * k, 0, 0); P.set('hipR', 0.2 * k, 0, -0.15); P.set('kneeR', 0.5 * k, 0, 0);

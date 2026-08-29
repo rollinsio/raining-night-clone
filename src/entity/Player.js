@@ -4,6 +4,7 @@
  */
 import * as THREE from 'three';
 import { Entity } from './Entity.js';
+import { setHitCtx } from './Humanoid.js';
 import { createNightfarerRig } from '../nightfarers/Rig.js';
 import { WEAPONS, MOVESETS, SKILLS } from '../combat/Weapons.js';
 
@@ -179,7 +180,7 @@ export class Player extends Entity {
     this.attack.phase = 'none';
     this.setState('roll');
     this.anim.ctx.dur = ROLL_DUR;
-    this.anim.play('roll', { restart: true, rate: 30 });
+    this.anim.play('roll', { restart: true, blend: 0.06 });
   }
 
   updateRoll(dt) {
@@ -271,14 +272,14 @@ export class Player extends Entity {
   onHurt(hit) {
     this.combatT = COMBAT_LINGER;
     if (this.state !== 'roll') {
-      this.setState('hit'); this.hitDur = 0.35; this.anim.ctx.dur = 0.35;
-      this.anim.play('hit', { restart: true, rate: 22 }); this.attack.phase = 'none';
+      this.setState('hit'); this.hitDur = 0.35; this.anim.ctx.dur = 0.35; setHitCtx(this.anim.ctx, hit, this.yaw);
+      this.anim.play('hit', { restart: true, blend: 0.03 }); this.attack.phase = 'none'; // snaps: the clip itself relaxes
     }
     this.game.cameraCtl.addShake(0.45); this.game.postfx.flashDamage(0.55);
   }
   onStagger(hit) {
-    this.setState('hit'); this.hitDur = 0.8; this.anim.ctx.dur = 0.8;
-    this.anim.play('stagger', { restart: true, rate: 18 }); this.attack.phase = 'none';
+    this.setState('hit'); this.hitDur = 0.8; this.anim.ctx.dur = 0.8; setHitCtx(this.anim.ctx, hit, this.yaw);
+    this.anim.play('stagger', { restart: true, blend: 0.04 }); this.attack.phase = 'none';
     this.game.cameraCtl.addShake(0.8); this.game.postfx.flashDamage(0.8);
   }
   onDeath() {
