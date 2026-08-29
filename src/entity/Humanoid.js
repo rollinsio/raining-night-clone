@@ -474,7 +474,7 @@ const HEAVY_KEYS = [
       spine: [-0.15, 0, 0], chest: [-0.15, 0, 0], head: [0.1, 0, 0], kneeL: [0.35, 0, 0], kneeR: [0.2, 0, 0], ankleL: [0, 0, 0], hipsY: 0.02 } },
   { u: 1.0, ease: 'out', pose: { shoulderR: [-3.15, -0.15, -0.2], elbowR: [-0.85, 0, 0], wristR: [-0.55, 0, 0], shoulderL: [-2.95, 0.25, 0.25], elbowL: [-0.85, 0, 0],
       spine: [-0.2, 0, 0], chest: [-0.2, 0, 0], hipsY: 0.03 } },
-  { u: 1.55, ease: 'in', pose: { shoulderR: [-1.3, -0.15, -0.2], elbowR: [-0.1, 0, 0], wristR: [0.35, 0, 0], shoulderL: [-1.2, 0.25, 0.25], elbowL: [-0.1, 0, 0],
+  { u: 1.55, ease: 'in', pose: { shoulderR: [-1.5, -0.15, -0.2], elbowR: [-0.1, 0, 0], wristR: [0.25, 0, 0], shoulderL: [-1.4, 0.25, 0.25], elbowL: [-0.1, 0, 0],
       spine: [0.35, 0, 0], chest: [0.35, 0, 0], head: [-0.3, 0, 0], kneeL: [0.9, 0, 0], kneeR: [0.55, 0, 0], ankleL: [-0.3, 0, 0], hipsY: -0.22 } },
   { u: 2.0, ease: 'out', pose: { shoulderR: [-1.65, -0.15, -0.2], elbowR: [-0.2, 0, 0], wristR: [0.15, 0, 0], shoulderL: [-1.6, 0.25, 0.25], elbowL: [-0.2, 0, 0],
       spine: [0.4, 0, 0], chest: [0.35, 0, 0], kneeL: [1.0, 0, 0], kneeR: [0.6, 0, 0], ankleL: [-0.35, 0, 0], hipsY: -0.3 } },

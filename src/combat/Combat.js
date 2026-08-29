@@ -114,13 +114,14 @@ export class Combat {
   acquireTrail(e) {
     if (e._trail && e._trail.owner === e) return e._trail;
     const rig = e.rig;
-    if (!rig || !rig.bones || !rig.bones.wristR || !rig.handRLocal) return null;
+    if (!rig || !rig.bones || !(rig.bones.wristR || rig.bones.elbowR) || !rig.handRLocal) return null;
     const span = bladePoints(e.weapon.visual, rig.handRLocal, e._blade || (e._blade = { base: new THREE.Vector3(), tip: new THREE.Vector3() }));
     if (!span) return null;
     let trail = null;
     for (const t of this.trails) if (!t.busy) { trail = t; break; }
     if (!trail) return null;
-    trail.attach(e, rig.mesh, rig.bones.wristR, span.base, span.tip, e.team === 'player' ? 0xbcd0ff : 0xffb070);
+    // the player rig has wrist bones (they rotate during swings); the enemy rig's hand hangs off the elbow
+    trail.attach(e, rig.mesh, rig.bones.wristR || rig.bones.elbowR, span.base, span.tip, e.team === 'player' ? 0xbcd0ff : 0xffb070);
     e._trail = trail;
     return trail;
   }
@@ -142,13 +143,14 @@ export class Combat {
    */
   sweep(att) {
     const a = att.attack, def = a.def, rig = att.rig, w = att.weapon;
-    const span = rig && rig.bones && rig.bones.wristR && rig.handRLocal && w && TRAIL_SPAN[w.visual] ? TRAIL_SPAN[w.visual] : null;
+    const hand = rig && rig.bones && (rig.bones.wristR || rig.bones.elbowR); // enemy rigs have no wrist bone
+    const span = hand && rig.handRLocal && w && TRAIL_SPAN[w.visual] ? TRAIL_SPAN[w.visual] : null;
     if (!span) { this.sweepArc(att); return; }
     const grip = att._grip || (att._grip = { base: new THREE.Vector3(), tip: new THREE.Vector3(), pBase: new THREE.Vector3(), pTip: new THREE.Vector3(), def: null, lastT: 0 });
     bladePoints(w.visual, rig.handRLocal, grip); // bind-pose model space
     grip.base.copy(rig.handRLocal).lerp(grip.base, 0.15); // from just past the grip to the tip
-    boneToWorld(rig.mesh, rig.bones.wristR, grip.base, _b0); grip.base.copy(_b0);
-    boneToWorld(rig.mesh, rig.bones.wristR, grip.tip, _b1); grip.tip.copy(_b1);
+    boneToWorld(rig.mesh, hand, grip.base, _b0); grip.base.copy(_b0);
+    boneToWorld(rig.mesh, hand, grip.tip, _b1); grip.tip.copy(_b1);
     // first active frame of a (re)started attack: no previous segment to sweep from
     if (grip.def !== def || a.t <= grip.lastT) { grip.pBase.copy(grip.base); grip.pTip.copy(grip.tip); }
     grip.def = def; grip.lastT = a.t;

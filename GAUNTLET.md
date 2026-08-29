@@ -29,6 +29,8 @@ node tools/screenshot.mjs vista combat grace   # → shots/<pose>.png, prints fp
 node tools/blindpair.mjs <piece> <round> shots/<pose>.png reference/...   # → critic/<piece>/r<round>/{A,B}.jpg + prints mapping
 ```
 
+Motion (animation) is judged from `node tools/motion.mjs <action>` — e.g. `combo`, `heavy`, `soldier:light`, `run` — which writes `shots/motion/<action>/`: `sheet_<view>.png` (every frame labelled with time / attack phase / tip speed), `onion_<view>.png` (ghosted frames with the blade-tip path: grey windup, red active, blue recover — dot spacing is speed), `motion_<view>.gif`, `trace.json` and `report.md` with checks. A builder touching clips runs it before and after; a critic reads the onion skins and the checks, not single frames.
+
 ## Critic contract
 
 The critic receives only: the piece name, what the piece is supposed to achieve, and the two paths `A.jpg` / `B.jpg`. It must:
