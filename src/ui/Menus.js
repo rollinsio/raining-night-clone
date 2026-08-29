@@ -40,6 +40,19 @@ const CSS = BASE_CSS + `
   .m-desc { min-height: 0; }
   .m-death .t { font-size: 52px; }
 }
+/* portrait phones: the roster becomes a bottom sheet so the Nightfarer figure has the top half of the screen */
+@media (orientation: portrait) and (max-width: 730px) {
+  .m-screen.m-hubscreen { align-items: flex-end; }
+  .m-hubscreen .m-panel { width: 100vw; max-width: 100vw; max-height: 54vh; padding: 12px 18px 16px; border-left: 0; border-right: 0; }
+  .m-hubscreen .m-h1 { font-size: 18px; margin: 0; }
+  .m-hubscreen .m-h2 { font-size: 10px; margin-bottom: 8px; }
+  .m-hubscreen .m-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; }
+  .m-hubscreen .m-list .m-btn { padding: 5px 10px; margin: 2px 0; font-size: 13px; }
+  .m-hubscreen .m-desc { font-size: 12px; line-height: 1.45; }
+  .m-hubscreen .m-stats { margin: 6px 0 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+  .m-hubscreen .m-row { padding: 2px 0; font-size: 12px; }
+  .m-hubscreen .m-small { font-size: 10px; margin-top: 8px; }
+}
 `;
 
 export class Menus {
@@ -95,22 +108,26 @@ export class Menus {
       <div><div class="m-h2" style="text-align:left;text-indent:0" id="m-nfname"></div><div class="m-desc" id="m-nfdesc"></div>
       <div class="m-stats" id="m-nfstats"></div><button class="m-btn" id="m-begin" style="border-color:#6b5a33">Begin Expedition</button>
       <div class="m-small">Limveld · 3 nights · 8 sites of grace</div></div></div></div>`, { dim: false, pause: false });
+    s.classList.add('m-hubscreen');
     let sel = 0;
     const show = (i) => {
       sel = i; const n = list[i];
       s.querySelectorAll('.m-list .m-btn').forEach((b, j) => b.classList.toggle('sel', j === i));
       s.querySelector('#m-nfname').textContent = n.name.toUpperCase();
       s.querySelector('#m-nfdesc').textContent = n.desc;
+      this.game.hubPreview.show(n);
       s.querySelector('#m-nfstats').innerHTML = `<div class="m-row">Vigour <b>${n.hp}</b></div><div class="m-row">Mind <b>${n.fp}</b></div><div class="m-row">Endurance <b>${n.stamina}</b></div><div class="m-row">Weapon <b>${n.weapon}</b></div>`;
     };
     show(0);
-    // touch mode: first tap on a name previews it, a second tap (or Begin) starts — no hover exists
+    // touch mode: a tap on a name only previews it (Begin starts). A tap also fires a synthetic
+    // mouseenter before its click, so hover-select must be ignored there or every tap launches.
+    const touch = () => this.game.touch && this.game.touch.active;
     s.querySelectorAll('.m-list .m-btn').forEach((b) => {
-      b.addEventListener('mouseenter', () => show(+b.dataset.i));
+      b.addEventListener('mouseenter', () => { if (!touch()) show(+b.dataset.i); });
       b.addEventListener('click', () => {
         const i = +b.dataset.i;
-        if (this.game.touch && this.game.touch.active && sel !== i) { show(i); return; }
-        show(i); onPick(list[sel]);
+        show(i);
+        if (!touch()) onPick(list[sel]);
       });
     });
     s.querySelector('#m-begin').addEventListener('click', () => onPick(list[sel]));

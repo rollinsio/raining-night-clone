@@ -32,6 +32,7 @@ src/entity/enemies/*.js    Soldier, Wolf, Knight, Archer, Bat, Troll
 src/entity/bosses/Boss.js  boss base: phases, health bar hookup, arena, intro card, death → ring reset
 src/entity/bosses/*.js     day1 field bosses (Tree Sentinel-like, Bell Bearing Hunter-like), day2 (Gaping Jaw-like, Centipede-demon), Nightlord: Gladius/Adel/Heolstor-like w/ phase 2 (+3 for Everdark)
 src/combat/Combat.js       hit volumes (sphere sweeps), damage calc, poise/stagger, i-frames, hit-stop, hit FX, rune payout
+src/combat/Projectiles.js  arrows / glintstone bolts for the ranged movesets (bow, staff): swept hits, terrain stop, trail + burst FX
 src/combat/Weapons.js      weapon table (type, dmg, scaling, moveset id, rarity), movesets (timings, hitbox frames, motion values)
 src/nightfarers/index.js   8 classes: Wylder, Guardian, Ironeye, Raider, Recluse, Executor, Duchess, Revenant — stats, start weapon, skill(), ultimate(), cooldowns
 src/run/Expedition.js      run state: day (1..3), timer, phase (explore/ring1/ring2/boss), events, end conditions
@@ -40,6 +41,7 @@ src/run/Loot.js            chest/weapon drop RNG, rarity weights by day, pickup 
 src/run/Grace.js           Site of Grace: rest, level-up (runes → level via curve), respawn point
 src/run/ShiftingEarth.js   optional terrain rewrite variants: crater (lava), mountain (ice), swamp (rot) — tougher enemies, better loot
 src/hub/Roundtable.js      Roundtable Hold scene: nightfarer select, relic slots, start expedition
+src/hub/Preview.js         hub roster figure: the selected Nightfarer's dressed rig (nightfarers/Rig.js) held in front of the orbit camera
 src/meta/Relics.js         persistence via localStorage: relics owned, vessel slots per nightfarer, run history
 src/ui/HUD.js              HP/FP/stamina bars (top-left), runes (bottom-right), boss bar (bottom-center), day/timer + ring indicator, lock-on reticle, pickup prompts, damage numbers off
 src/ui/Menus.js            title, hub menus, level-up, inventory, death ("YOU DIED" style), victory, pause

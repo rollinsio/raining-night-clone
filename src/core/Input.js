@@ -6,7 +6,7 @@
 const KEYMAP = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
   ShiftLeft: 'sprint', ShiftRight: 'sprint', Space: 'roll', KeyE: 'interact', KeyQ: 'lockOn',
-  Digit1: 'skill', Digit2: 'ult', KeyM: 'map', Escape: 'pause', KeyF: 'light', KeyR: 'heavy', Tab: 'lockOn',
+  Digit1: 'skill', Digit2: 'ult', KeyC: 'flask', KeyM: 'map', Escape: 'pause', KeyF: 'light', KeyR: 'heavy', Tab: 'lockOn',
 };
 const MOUSEMAP = { 0: 'light', 1: 'lockOn', 2: 'heavy' };
 

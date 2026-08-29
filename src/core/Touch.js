@@ -9,13 +9,20 @@
  * Button placement comes from per-orientation tables (portrait screens are ~half as wide) and
  * re-applies on resize. Cancelling pointerdown suppresses the browser's compatibility mouse
  * events, so taps never reach the canvas mousedown path (no stray attacks, no pointer-lock asks).
+ * The pads sit above the HUD, so each pad hit-tests the HUD's bottom slots/arts first: a tap on the
+ * flask slot drinks, on the skill/ult art fires it, and on any slot never spawns the stick. A double-tap on
+ * an enemy (either pad) locks onto that enemy directly; a single right-pad tap still toggles the cone lock.
  */
+import * as THREE from 'three';
 import { UI, FONT, TEXT_SHADOW, alpha, mix, shade } from '../ui/Theme.js';
+
+const _v = new THREE.Vector3();
 
 const STICK_R = 58;                 // px from stick centre to full deflection
 const DEAD = 0.14;                  // stick dead zone (fraction of STICK_R)
 const LOOK_GAIN = 2.2;              // touch px -> equivalent mouse px for the orbit camera
 const TAP_MS = 220, TAP_PX = 12;    // look-pad tap thresholds (lock-on toggle)
+const DBL_MS = 350, DBL_PX = 40, PICK_PX = 70; // double-tap on an enemy (either pad) locks onto that enemy
 
 /** Button placement per orientation: [right, bottom|top, size] px; `pad` = left-pad width fraction. */
 const LAYOUT = {
@@ -56,6 +63,7 @@ export class Touch {
     this.sprintLatch = false;
     this._useShown = false;
     this._shown = null;
+    this.tap = { t: 0, x: 0, y: 0 };
     const coarse = matchMedia('(any-pointer: coarse)').matches && !matchMedia('(any-hover: hover)').matches;
     if (coarse) this.activate();
     else window.addEventListener('touchstart', () => this.activate(), { once: true, passive: true });
@@ -72,7 +80,7 @@ export class Touch {
     this.layout();
     window.addEventListener('resize', () => this.layout());
     // touch-flavoured controls hint; the interact prompt drops its keyboard keycap (a button appears instead)
-    hud.el.hint.innerHTML = 'move<b>left pad</b><br>camera<b>right pad</b><br>lock-on<b>tap right pad</b><br>sprint<b>spr (latches)</b><br>dodge roll<b>roll</b><br>light / heavy<b>atk / hvy</b><br>skill / ultimate<b>skl / ult</b>';
+    hud.el.hint.innerHTML = 'move<b>left pad</b><br>camera<b>right pad</b><br>lock-on<b>tap right pad · 2× tap enemy</b><br>sprint<b>spr (latches)</b><br>flask<b>tap flask</b><br>dodge roll<b>roll</b><br>light / heavy<b>atk / hvy</b><br>skill / ultimate<b>skl / ult</b>';
     // the desktop hint spot (bottom-right) collides with the day/timer line and buttons on phones
     const hs = hud.el.hint.style;
     hs.top = '126px'; hs.bottom = 'auto'; hs.right = '300px'; hs.fontSize = '12px';
@@ -119,6 +127,7 @@ export class Touch {
     };
     padL.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      if (this.hudTap(e) || this.tapLock(e)) return;
       if (this.stick.id !== -1) return;
       this.stick.id = e.pointerId; this.stick.ox = e.clientX; this.stick.oy = e.clientY;
       Touch.cap(padL, e);
@@ -138,6 +147,7 @@ export class Touch {
     const padR = this.padR = document.createElement('div'); padR.className = 't-pad r'; ui.appendChild(padR);
     padR.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      if (this.hudTap(e) || this.tapLock(e)) return;
       if (this.look.id !== -1) return;
       this.look.id = e.pointerId; this.look.x = e.clientX; this.look.y = e.clientY;
       this.look.t = performance.now(); this.look.moved = 0; // handler time, not e.timeStamp — synthesized events carry stale stamps
@@ -192,6 +202,55 @@ export class Touch {
     this.ui.appendChild(b);
     this.btns[key] = b;
     return b;
+  }
+
+  /**
+   * If the pointer landed on a HUD slot or art (which the pads cover), fire its action and flash it.
+   * Returns true when the tap was consumed, so the pad must not start a stick/look drag. Slots with no
+   * action yet (weapon, quick item, off-hand) still swallow the tap rather than spawning the stick.
+   */
+  hudTap(e) {
+    const E = this.game.hud.el;
+    const targets = [[E.itemSlot, 'flask'], [E.artSkill, 'skill'], [E.artUlt, 'ult'], [E.weaponSlot, null], [E.potSlot, null], [E.offSlot, null]];
+    // rect containment, not elementsFromPoint: #hud is pointer-events:none, so hit-testing skips it
+    const x = e.clientX, y = e.clientY;
+    for (const [el, action] of targets) {
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
+      if (action) { this.press(action); this.release(action); }
+      el.classList.add('tap'); setTimeout(() => el.classList.remove('tap'), 160);
+      return true;
+    }
+    return false;
+  }
+
+  /** Second tap within DBL_MS / DBL_PX of the first: lock onto the enemy under it (if any). Consumes the tap. */
+  tapLock(e) {
+    const now = performance.now(), last = this.tap;
+    const dbl = now - last.t < DBL_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < DBL_PX;
+    last.t = now; last.x = e.clientX; last.y = e.clientY;
+    if (!dbl) return false;
+    const g = this.game, p = g.player;
+    if (!p || g.state !== 'EXPEDITION' || !g.input.enabled) return false;
+    const en = this.enemyAt(e.clientX, e.clientY);
+    if (!en) return false;
+    p.setLock(en); last.t = 0;
+    return true;
+  }
+
+  /** Nearest living enemy whose projected body centre is within PICK_PX of the screen point (and in lock range). */
+  enemyAt(x, y) {
+    const g = this.game, cam = g.camera, p = g.player;
+    let best = null, bestD = PICK_PX;
+    for (const t of g.entities) {
+      if (t === p || !t.alive || t.team !== 'enemy' || p.distanceTo(t) > 40) continue;
+      _v.set(t.pos.x, t.pos.y + t.height * t.scale * 0.5, t.pos.z).project(cam);
+      if (_v.z > 1) continue;
+      const d = Math.hypot((_v.x + 1) / 2 * innerWidth - x, (1 - _v.y) / 2 * innerHeight - y);
+      if (d < bestD) { bestD = d; best = t; }
+    }
+    return best;
   }
 
   setSprint(on) {

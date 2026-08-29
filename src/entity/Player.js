@@ -4,11 +4,12 @@
  */
 import * as THREE from 'three';
 import { Entity } from './Entity.js';
-import { createHumanoid } from './Humanoid.js';
+import { createNightfarerRig } from '../nightfarers/Rig.js';
 import { WEAPONS, MOVESETS, SKILLS } from '../combat/Weapons.js';
-import { NIGHTFARER_COLORS, PALETTE } from '../render/Style.js';
 
-const _move = new THREE.Vector3(), _f = new THREE.Vector3(), _r = new THREE.Vector3(), _chest = new THREE.Vector3(), _n = new THREE.Vector3();
+const _move = new THREE.Vector3(), _f = new THREE.Vector3(), _r = new THREE.Vector3(), _chest = new THREE.Vector3(), _n = new THREE.Vector3(), _org = new THREE.Vector3(), _aim = new THREE.Vector3();
+const FLASK_HEAL = 0.4;           // fraction of max HP restored per crimson flask
+const COMBAT_R = 45, COMBAT_LINGER = 4; // an aggro'd enemy this close, or a hit this recent, counts as combat
 const UP = new THREE.Vector3(0, 1, 0);
 const WALK = 5.8, SPRINT = 9.3, ROLL_DUR = 0.55, ROLL_SPEED = 8.6, DEG = Math.PI / 180;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -21,15 +22,13 @@ export class Player extends Entity {
     this.baseHp = nf.hp; this.baseStamina = nf.stamina; this.baseFp = nf.fp;
     this.fp = nf.fp; this.maxFp = nf.fp;
     this.level = 1; this.runes = 0; this.kills = 0; this.deaths = 0;
-    this.flasks = 3; this.maxFlasks = 3; // HUD flask count (refilled at a grace; no drink input yet)
+    this.flasks = 3; this.maxFlasks = 3; // crimson flasks (refilled at a grace; `flask` action drinks one)
     this.weapon = WEAPONS[nf.weapon] || WEAPONS.sword;
     this.moveset = MOVESETS[this.weapon.moveset];
-    const colors = NIGHTFARER_COLORS[nf.name] || NIGHTFARER_COLORS.Wylder;
-    // every Nightfarer wears the hooded travelling cloak; helmed classes keep the helm under it
-    const scarf = nf.name === 'Wylder' ? PALETTE.sparkBlood : colors.accent;
     const T = game.terrain;
     const ground = (x, z, n) => { T.getNormal(x, z, n); return T.getHeight(x, z); }; // per-foot contact shadows
-    this.rig = createHumanoid({ colors, weapon: this.weapon.visual, hood: true, helm: colors.helm, cloak: true, scarf, ground });
+    // the class costume (nightfarers/Rig.js): Ironeye's bow sits in the left fist, casters carry the staff
+    this.rig = createNightfarerRig(nf, { ground });
     this.object3d.add(this.rig.root);
     // yaw writes straight through to the transform so a pose that sets it without stepping physics still renders facing that way
     let yaw = this.yaw;
@@ -41,9 +40,9 @@ export class Player extends Entity {
     this.moveDir = new THREE.Vector3(0, 0, 1); this.rollDir = new THREE.Vector3(0, 0, 1);
     this.lockTarget = null; this.comboIndex = 0;
     this.bufferAction = null; this.bufferT = 0;
-    this.staminaDelay = 0; this.skillCd = 0; this.ultCd = 0;
+    this.staminaDelay = 0; this.skillCd = 0; this.ultCd = 0; this.combatT = 0;
     this.respawnPoint = new THREE.Vector3(); this.respawnName = 'Limveld';
-    this.attack = { def: null, t: 0, phase: 'none', hitSet: new Set(), lastAngle: 0, heavy: false, reach: 0 };
+    this.attack = { def: null, t: 0, phase: 'none', hitSet: new Set(), lastAngle: 0, heavy: false, reach: 0, fired: false };
     this.outsideRing = false;
   }
 
@@ -77,10 +76,11 @@ export class Player extends Entity {
     const input = this.game.input, camCtl = this.game.cameraCtl;
     if (this.skillCd > 0) this.skillCd -= dt;
     if (this.ultCd > 0) this.ultCd -= dt;
+    if (this.combatT > 0) this.combatT -= dt;
     if (this.bufferT > 0) { this.bufferT -= dt; if (this.bufferT <= 0) this.bufferAction = null; }
     this.fp = Math.min(this.maxFp, this.fp + 0.7 * dt);
 
-    for (const a of ['light', 'heavy', 'roll', 'skill', 'ult']) if (input.wasPressed(a)) this.buffer(a);
+    for (const a of ['light', 'heavy', 'roll', 'skill', 'ult', 'flask']) if (input.wasPressed(a)) this.buffer(a);
     if (input.wasPressed('lockOn')) this.toggleLock();
     if (this.lockTarget && (!this.lockTarget.alive || this.distanceTo(this.lockTarget) > 42)) this.setLock(null);
 
@@ -121,12 +121,13 @@ export class Player extends Entity {
     this.speed += clamp(target - this.speed, -accel * dt, accel * dt);
     if (len > 0.001) this.moveDir.copy(move);
     this.vel.x = this.moveDir.x * this.speed; this.vel.z = this.moveDir.z * this.speed;
-    if (wantSprint) { this.stamina -= 11 * dt; this.staminaDelay = 0.5; }
+    if (wantSprint && this.inCombat()) { this.stamina -= 11 * dt; this.staminaDelay = 0.5; } // Nightreign: sprinting is free out of combat
     if (this.lockTarget && !wantSprint) this.faceToward(this.lockTarget.pos.x, this.lockTarget.pos.z, dt, 14);
     else if (len > 0.001) this.faceToward(this.pos.x + move.x, this.pos.z + move.z, dt, 13);
     if (this.speed > 0.4) { anim.play('run'); anim.ctx.speed = clamp((this.speed - 3) / (SPRINT - 3), 0, 1); this.state = 'move'; }
     else { anim.play('idle'); this.state = 'idle'; }
     // actions
+    if (this.bufferAction === 'flask') { this.takeBuffer('flask'); this.drinkFlask(); return; }
     if (this.bufferAction === 'roll' && this.stamina > 0) { this.takeBuffer('roll'); this.startRoll(len > 0.001 ? move : this.forward()); return; }
     if (this.bufferAction === 'light' && this.stamina > 0) { this.takeBuffer('light'); this.comboIndex = 0; this.startAttack(this.moveset.light[0], false, move, len); return; }
     if (this.bufferAction === 'heavy' && this.stamina > 0) { this.takeBuffer('heavy'); this.startAttack(this.moveset.heavy, true, move, len); return; }
@@ -142,6 +143,32 @@ export class Player extends Entity {
         this.startAttack({ clip: 'heavy', windup: 0.32, active: 0.14, recover: 0.6, motion: SKILLS.ult.motion, arcFrom: -180, arcTo: 180, stamina: 0, knock: SKILLS.ult.knock, step: 0, poiseMul: 3, reachOverride: SKILLS.ult.radius, burst: true }, true, move, len);
       }
     }
+  }
+
+  /** Drink a crimson flask: heals a fixed fraction of max HP. Only from idle/move (buffered like attacks). */
+  drinkFlask() {
+    if (this.flasks <= 0) return false;
+    this.flasks--;
+    this.hp = Math.min(this.maxHp, this.hp + Math.round(this.maxHp * FLASK_HEAL));
+    return true;
+  }
+
+  /**
+   * Ranged release from the chest: at the lock target's body, else at the nearest enemy close to the aim line
+   * (a soft assist — precise aiming on a touch pad is hopeless), else level along the facing.
+   */
+  fireRanged(def) {
+    _org.set(this.pos.x + Math.sin(this.yaw) * 0.45, this.pos.y + 1.35, this.pos.z + Math.cos(this.yaw) * 0.45);
+    let t = this.lockTarget, bestA = 0.22;
+    if (!t) for (const e of this.game.entities) {
+      if (e === this || !e.alive || e.team === 'player') continue;
+      const d = this.distanceTo(e); if (d > 36) continue;
+      let rel = Math.atan2(e.pos.x - this.pos.x, e.pos.z - this.pos.z) - this.yaw; rel = Math.abs(Math.atan2(Math.sin(rel), Math.cos(rel)));
+      if (rel < bestA) { bestA = rel; t = e; }
+    }
+    if (t) _aim.set(t.pos.x, t.pos.y + t.height * t.scale * 0.55, t.pos.z).sub(_org).normalize();
+    else _aim.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+    this.game.combat.projectiles.fire(this, def, _org, _aim);
   }
 
   startRoll(dir) {
@@ -164,13 +191,15 @@ export class Player extends Entity {
   }
 
   startAttack(def, heavy, move, len) {
+    if (def.fp) { if (this.fp < def.fp) def = this.moveset.light[0]; else this.fp -= def.fp; } // casts cost FP; short of it, a plain bolt
     const a = this.attack;
-    a.def = def; a.t = 0; a.phase = 'windup'; a.hitSet.clear(); a.heavy = heavy;
+    a.def = def; a.t = 0; a.phase = 'windup'; a.hitSet.clear(); a.heavy = heavy; a.fired = false;
     a.lastAngle = def.arcFrom * DEG; a.reach = def.reachOverride || this.weapon.reach;
     this.stamina -= (def.stamina || 0) * (this.weapon.staminaMul || 1); this.staminaDelay = 1.2;
     this.sprinting = false;
     this.setState('attack');
     if (this.lockTarget) this.yaw = Math.atan2(this.lockTarget.pos.x - this.pos.x, this.lockTarget.pos.z - this.pos.z);
+    else if (def.ranged) { this.game.cameraCtl.cameraForward(_f); this.yaw = Math.atan2(_f.x, _f.z); } // unlocked shots go where the camera looks
     else if (move && len > 0.001) this.yaw = Math.atan2(move.x, move.z);
     const ctx = this.anim.ctx; ctx.windup = def.windup; ctx.active = def.active; ctx.recover = def.recover;
     this.anim.play(def.clip, { restart: true, rate: 26 });
@@ -186,6 +215,7 @@ export class Player extends Entity {
       if (this.lockTarget) this.faceToward(this.lockTarget.pos.x, this.lockTarget.pos.z, dt, 7);
     } else if (a.t < ta) {
       a.phase = 'active';
+      if (def.ranged && !a.fired) { a.fired = true; this.fireRanged(def); }
       const sp = def.step / def.active;
       this.vel.x = Math.sin(this.yaw) * sp; this.vel.z = Math.cos(this.yaw) * sp; this.speed = 0;
     } else {
@@ -225,7 +255,18 @@ export class Player extends Entity {
   }
   setLock(e) { this.lockTarget = e; this.game.cameraCtl.lockTarget = e; }
 
+  /** Locked on, hit in the last few seconds, or an aggro'd enemy nearby — the sprint-cost gate. */
+  inCombat() {
+    if (this.combatT > 0 || this.lockTarget) return true;
+    for (const e of this.game.entities) {
+      if (e === this || !e.alive || e.team !== 'enemy' || !e.aggro) continue;
+      if (this.distanceTo(e) < COMBAT_R) return true;
+    }
+    return false;
+  }
+
   onHurt(hit) {
+    this.combatT = COMBAT_LINGER;
     if (this.state !== 'roll') {
       this.setState('hit'); this.hitDur = 0.35; this.anim.ctx.dur = 0.35;
       this.anim.play('hit', { restart: true, rate: 22 }); this.attack.phase = 'none';

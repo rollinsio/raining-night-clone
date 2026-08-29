@@ -11,7 +11,7 @@ npm install
 npx vite --port 5173      # http://localhost:5173 — click the canvas for pointer lock
 ```
 
-Controls: **WASD** move · **Shift** sprint · **Space** roll (i-frames) · **LMB** light · **RMB** heavy · **Q** lock-on · **E** interact/rest · **1/2** skill/ultimate · **M** map · **Esc** pause.
+Controls: **WASD** move · **Shift** sprint · **Space** roll (i-frames) · **LMB** light · **RMB** heavy · **Q** lock-on (touch: tap the right pad, or double-tap an enemy) · **E** interact/rest · **C** flask · **1/2** skill/ultimate · **M** map · **Esc** pause. Ironeye's bow and the casters' staffs fire projectiles: light = quick shot, heavy = charged shot / comet (costs FP); sprinting is free outside combat.
 
 ## Android
 

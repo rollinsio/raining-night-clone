@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { Events } from './Events.js';
 import { Input } from './Input.js';
 import { Touch } from './Touch.js';
+import { HubPreview } from '../hub/Preview.js';
 import { Rng } from './Rng.js';
 import { installDebug } from './Debug.js';
 import { Atmosphere } from '../render/Atmosphere.js';
@@ -66,6 +67,7 @@ export class Game {
     this.menus = new Menus(this);
     this.map = new GameMap(this);
     this.touch = new Touch(this);
+    this.hubPreview = new HubPreview(this); // roster figure in the hub
     installDebug(this);
     window.addEventListener('resize', () => this.resize());
     this.input.onLockChange = (locked) => {
@@ -91,6 +93,7 @@ export class Game {
   startExpedition(nfId) {
     const nf = getNightfarer(nfId);
     this.menus.closeAll();
+    this.hubPreview.hide();
     this.clearRun();
     this.state = 'EXPEDITION';
     this.player = new Player(this, nf);
@@ -186,6 +189,7 @@ export class Game {
       this.graces.update(dt);
     }
     this.cameraCtl.update(dt);
+    if (this.state === 'HUB') this.hubPreview.update(dt);
     this.hud.update(dt);
     this.atmosphere.update(dt);
     this.postfx.update(dt);
