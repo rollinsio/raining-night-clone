@@ -71,7 +71,7 @@ export class Entity {
     this.yaw += Math.abs(d) < step ? d : Math.sign(d) * step;
   }
 
-  /** Gravity + terrain collision + map bounds. Knockback decays here. */
+  /** Gravity + terrain collision + static solids + map bounds. Knockback decays here. */
   applyPhysics(dt) {
     const T = this.game.terrain;
     this.vel.y -= GRAVITY * dt;
@@ -84,6 +84,8 @@ export class Entity {
     const lim = T.half - 14;
     if (this.pos.x > lim) this.pos.x = lim; else if (this.pos.x < -lim) this.pos.x = -lim;
     if (this.pos.z > lim) this.pos.z = lim; else if (this.pos.z < -lim) this.pos.z = -lim;
+    // static solids (tree trunks): slide out of any we overlap before sampling the ground under the final spot
+    if (this.game.colliders) this.game.colliders.resolve(this.pos, this.radius);
     const h = T.getHeight(this.pos.x, this.pos.z);
     if (this.pos.y <= h) { this.pos.y = h; if (this.vel.y < 0) this.vel.y = 0; this.onGround = true; }
     else this.onGround = this.pos.y - h < 0.05;

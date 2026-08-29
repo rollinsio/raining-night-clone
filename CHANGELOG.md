@@ -3,6 +3,13 @@
 One line per module: what exists, and any known stubs. Folder ownership per ARCHITECTURE.md; the
 skeleton build touched every folder once — later builders own their folders from here.
 
+## Tree collision (2026-08-29)
+
+- `world/Colliders.js` — NEW: static solids as vertical cylinders in an 8 m uniform grid over the map (`add`, `forEachNear`, `resolve`, `overlaps`). `resolve(pos, radius)` slides a circle out of every overlapping cylinder (two passes so a body wedged between neighbours settles); big solids spill into every cell they touch.
+- `world/Props.js` — dead-tree trunks register as `0.5·s` cylinders, hero trunks (root flare) as `1.3·s`; ~970 solids on the default seed. Boulders / crags / monoliths are still walk-through (one `solids.add` line each when wanted).
+- `entity/Entity.js` — `applyPhysics` runs `colliders.resolve` after the map clamp and before the ground sample, so every entity (player, enemies, bosses) slides around trunks instead of passing through them. Enemies chasing around a tree slide rather than stop.
+- `tools/smoke.mjs` — new checks: walking head-on at the (128,186) landmark tree stops 1.22 m from its centre (0.8 trunk + 0.42 body); collider count > 500.
+
 ## Animation loops (2026-08-29)
 
 Goal: improve animations, judged with `tools/motion.mjs` (onion skins + checks) and `tools/smoke.mjs`.
