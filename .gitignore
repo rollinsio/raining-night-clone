@@ -12,6 +12,9 @@ progress/thumbs/
 # Before/after working captures.
 shots/before/
 
+# Motion review output (regenerable: node tools/motion.mjs <action>).
+shots/motion/
+
 *.mp4
 .DS_Store
 .claude/

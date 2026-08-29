@@ -54,6 +54,7 @@ The bar: **Ashen** (A44 Games) for look and feel, **Elden Ring Nightreign** for 
 | `tools/progress.mjs` | Regenerates the live progress page from that state |
 | `tools/fps-probe.mjs` | Real-GPU fps in headed Chromium |
 | `tools/smoke.mjs` | 27 end-to-end checks over the full run loop |
+| `tools/motion.mjs` | Motion review: captures one action (swing, combo, roll, run, enemy attack) from fixed angles with the sim stepped deterministically → labelled contact sheets, onion-skin overlays with the blade-tip path, GIFs, a per-frame trace and pass/fail checks (blade through ground, peak tip speed vs hitbox window, readability, clipping) |
 
 `ARCHITECTURE.md` is the module contract every builder works against; `GAUNTLET.md` is the critic/builder protocol; `CHANGELOG.md` records what each round changed.
 
