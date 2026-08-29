@@ -202,7 +202,7 @@ export class Player extends Entity {
     else if (def.ranged) { this.game.cameraCtl.cameraForward(_f); this.yaw = Math.atan2(_f.x, _f.z); } // unlocked shots go where the camera looks
     else if (move && len > 0.001) this.yaw = Math.atan2(move.x, move.z);
     const ctx = this.anim.ctx; ctx.windup = def.windup; ctx.active = def.active; ctx.recover = def.recover;
-    this.anim.play(def.clip, { restart: true, rate: 26 });
+    this.anim.play(def.clip, { restart: true, blend: 0.07 });
     if (def.burst) this.game.combat.burstFx(this);
   }
 
@@ -216,7 +216,9 @@ export class Player extends Entity {
     } else if (a.t < ta) {
       a.phase = 'active';
       if (def.ranged && !a.fired) { a.fired = true; this.fireRanged(def); }
-      const sp = def.step / def.active;
+      // root motion: the step lands as a bell-shaped lunge (same distance, peak velocity into contact) so the
+      // body drives the cut instead of gliding through it
+      const k = (a.t - tw) / def.active, sp = (def.step / def.active) * (Math.PI / 2) * Math.sin(Math.PI * k);
       this.vel.x = Math.sin(this.yaw) * sp; this.vel.z = Math.cos(this.yaw) * sp; this.speed = 0;
     } else {
       a.phase = 'recover'; this.decel(dt);

@@ -101,7 +101,7 @@ export class Enemy extends Entity {
     a.def = def; a.t = 0; a.phase = 'windup'; a.hitSet.clear(); a.lastAngle = def.arcFrom * DEG; a.reach = this.weapon.reach; a.stepped = false;
     this.setState('attack'); this.stop();
     const ctx = this.anim.ctx; ctx.windup = def.windup; ctx.active = def.active; ctx.recover = def.recover;
-    this.anim.play(def.clip, { restart: true, rate: 22 });
+    this.anim.play(def.clip, { restart: true, blend: 0.1 });
     this.glow = 0; this.telegraph = 0; this._glowDirty = true;
   }
 
@@ -202,7 +202,7 @@ export class Enemy extends Entity {
         } else if (a.t < ta) {
           a.phase = 'active'; this.glow = 0; this.telegraph = 0; this._glowDirty = true;
           if (!a.stepped) { a.stepped = true; this.bladeFlash = 1; this.game.combat.stepDust(this, def.step); }
-          const sp = def.step * this.scale / def.active;
+          const k = (a.t - tw) / def.active, sp = (def.step * this.scale / def.active) * (Math.PI / 2) * Math.sin(Math.PI * k);
           this.vel.x = Math.sin(this.yaw) * sp; this.vel.z = Math.cos(this.yaw) * sp;
         } else {
           a.phase = 'recover'; this.stop();

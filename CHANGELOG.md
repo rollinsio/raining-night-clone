@@ -3,6 +3,13 @@
 One line per module: what exists, and any known stubs. Folder ownership per ARCHITECTURE.md; the
 skeleton build touched every folder once — later builders own their folders from here.
 
+## Combat feel — swings that whip instead of smear (2026-08-28)
+
+- `entity/Humanoid.js` — `Animator.play()` takes `blend` (seconds): crossfade from the interrupted pose, then apply the clip's curve verbatim (the old low-pass, `rate` 26 → τ ≈ 38 ms, was smearing 140 ms swings so the blade lagged the hitbox and kept moving into recovery). Low-pass mode unchanged for locomotion/idle. NEW `keyed()` builds a clip from key poses on a normalised clock (0..1 windup, 1..2 active, 2..3 recover) with per-key easing; bones a key omits carry over. `light1/2/3` and `heavy` re-authored as keys: chamber (arm folded, blade over the shoulder, torso wound), short creep/hold, `in`-eased acceleration into contact at 55 % of active, `out`-eased follow-through with overshoot, settle. Wrist deviation makes the blade trail the hand into the cut and lead through the follow-through; elbow extends at contact; hips/spine/chest lead the arm; overhead chops drop the body onto the front knee and end with the blade low ahead (not through the ground). Old `phase()` helper removed.
+- `combat/Combat.js` — bladed humanoids hit-test the actual blade: grip→tip in world space (wrist bone), swept from last frame's segment (4 sub-steps × 5 points) against target cylinders; targets pressed against the attacker still count. Reach now follows the weapon (`TRAIL_SPAN`). Wolves/bosses keep the arc-sector path (`sweepArc`). Trail bound to `wristR` (the wrist rotates during swings now). Matrices refreshed before the sweep.
+- `entity/Player.js`, `entity/Enemy.js` — attacks play with `blend` (70 / 100 ms); root-motion `step` lands as a bell-shaped lunge over the active frames (same distance, peak velocity into contact) instead of constant velocity.
+- `combat/Pose.js` — contact point read off the wrist bone.
+
 ## Android conversion — portrait orientation (2026-08-28)
 
 - `android/.../AndroidManifest.xml` — `sensorPortrait` (was `sensorLandscape`).

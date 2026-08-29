@@ -115,10 +115,10 @@ export function composeCombatPose(game, { place, finish }) {
   combat.dustFx.time = now;
 
   // --- contact: the outer third of the blade, in world space, after the swing is snapped
-  const span = p.rig && p.rig.handRLocal && p.rig.bones && p.rig.bones.elbowR ? bladePoints(p.weapon.visual, p.rig.handRLocal, _span) : null;
+  const span = p.rig && p.rig.handRLocal && p.rig.bones && p.rig.bones.wristR ? bladePoints(p.weapon.visual, p.rig.handRLocal, _span) : null;
   if (span) {
-    boneToWorld(p.rig.mesh, p.rig.bones.elbowR, span.base, _base);
-    boneToWorld(p.rig.mesh, p.rig.bones.elbowR, span.tip, _tip);
+    boneToWorld(p.rig.mesh, p.rig.bones.wristR, span.base, _base);
+    boneToWorld(p.rig.mesh, p.rig.bones.wristR, span.tip, _tip);
     _hit.lerpVectors(_base, _tip, POSE.contactK);
   } else _hit.set(px + fx * 1.9 + rx * 0.4 * S, p.pos.y + 1.05, pz + fz * 1.9 + rz * 0.4 * S);
   _dir.set(_hit.x - px, 0, _hit.z - pz).normalize();
