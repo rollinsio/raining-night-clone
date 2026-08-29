@@ -10,6 +10,7 @@ import { FxPool } from './Fx.js';
 import { WeaponTrail } from './Trail.js';
 import { bladePoints } from './Weapons.js';
 import { Arena } from './Arena.js';
+import { Projectiles } from './Projectiles.js';
 import { HIT_RIM } from '../entity/enemies/EnemyRig.js';
 
 const DEG = Math.PI / 180, TAU = Math.PI * 2;
@@ -30,6 +31,7 @@ export class Combat {
     this.lightT = 0; this.lightPeak = 0; this.rimPeak = 0;
     this.trails = [new WeaponTrail(game.scene), new WeaponTrail(game.scene), new WeaponTrail(game.scene)];
     this.pending = [];
+    this.projectiles = new Projectiles(this); // arrows / glintstone bolts (ranged movesets)
     _c.setHex(PALETTE.terrain.dirt); _c2.setHex(PALETTE.fog);
     this.dustColor = _c.clone().lerp(_c2, 0.5).multiplyScalar(1.0); // unlit billboard: dry-earth haze a step paler than the trodden dirt so puffs read on it
     this.arena = new Arena(game); // trampled ground, camp clutter (contact blobs come from here too)
@@ -39,6 +41,7 @@ export class Combat {
 
   reset() {
     this.pending.length = 0;
+    this.projectiles.clear();
     for (const t of this.trails) t.clear();
     this.sparks.clear(); this.dustFx.clear();
     this.light.intensity = 0; this.lightT = 0; HIT_RIM.value.w = 0;
@@ -50,9 +53,11 @@ export class Combat {
     for (let i = 0; i < ents.length; i++) {
       const e = ents[i];
       if (!e.alive || e.frozen || !e.attack || e.attack.phase !== 'active') continue;
+      if (e.attack.def && e.attack.def.ranged) continue; // released as a projectile, no arc
       this.sweep(e);
       this.sampleTrail(e, time);
     }
+    this.projectiles.update(dt);
     for (let i = this.pending.length - 1; i >= 0; i--) {
       const p = this.pending[i];
       p.t -= dt;

@@ -12,14 +12,32 @@ export const WEAPONS = {
   halberd:      { name: 'Halberd', visual: 'halberd', dmg: 38, reach: 3.2, moveset: 'greatsword', poiseDmg: 26, staminaMul: 1.1, rarity: 'common' },
   axe:          { name: 'Great Axe', visual: 'axe', dmg: 46, reach: 2.5, moveset: 'greatsword', poiseDmg: 36, staminaMul: 1.2, rarity: 'common' },
   daggers:      { name: 'Daggers', visual: 'dagger', dmg: 21, reach: 1.8, moveset: 'sword', poiseDmg: 10, staminaMul: 0.75, rarity: 'common' },
-  staff:        { name: 'Glintstone Staff', visual: 'staff', dmg: 27, reach: 2.5, moveset: 'sword', poiseDmg: 14, staminaMul: 0.9, rarity: 'common' },
-  bow:          { name: 'Bow (melee stub)', visual: 'bow', dmg: 24, reach: 2.1, moveset: 'sword', poiseDmg: 12, staminaMul: 0.9, rarity: 'common' },
+  staff:        { name: 'Glintstone Staff', visual: 'staff', dmg: 27, reach: 2.5, moveset: 'staff', poiseDmg: 14, staminaMul: 0.9, rarity: 'common' },
+  bow:          { name: 'Recurve Bow', visual: 'bow', dmg: 26, reach: 2.1, moveset: 'bow', poiseDmg: 12, staminaMul: 0.9, rarity: 'common' },
   soldierSword: { name: 'Soldier Sword', visual: 'sword', dmg: 17, reach: 2.1, moveset: 'soldier', poiseDmg: 22, staminaMul: 1, rarity: 'common' },
   knightSword:  { name: 'Fell Greatsword', visual: 'greatsword', dmg: 30, reach: 2.9, moveset: 'knight', poiseDmg: 40, staminaMul: 1, rarity: 'common' },
   claws:        { name: 'Fangs', visual: 'none', dmg: 12, reach: 1.7, moveset: 'wolf', poiseDmg: 14, staminaMul: 1, rarity: 'common' },
 };
 
 export const MOVESETS = {
+  // ranged entries: no arc sweep — the Player releases `ranged` (kind / speed / life / hit radius) at the start of
+  // the active frames (combat/Projectiles.js). `fp` is a cast cost; short of it the heavy falls back to the light.
+  bow: {
+    light: [
+      { clip: 'bow', windup: 0.3, active: 0.08, recover: 0.34, motion: 1.0, arcFrom: 0, arcTo: 0, stamina: 9, knock: 1.6, step: 0, ranged: { kind: 'arrow', speed: 46, life: 1.6 } },
+      { clip: 'bow', windup: 0.22, active: 0.08, recover: 0.34, motion: 1.0, arcFrom: 0, arcTo: 0, stamina: 9, knock: 1.6, step: 0, ranged: { kind: 'arrow', speed: 46, life: 1.6 } },
+      { clip: 'bow', windup: 0.22, active: 0.08, recover: 0.4, motion: 1.15, arcFrom: 0, arcTo: 0, stamina: 10, knock: 2.2, step: 0, ranged: { kind: 'arrow', speed: 48, life: 1.6 } },
+    ],
+    heavy: { clip: 'bow', windup: 0.78, active: 0.1, recover: 0.5, motion: 2.4, arcFrom: 0, arcTo: 0, stamina: 22, knock: 5, step: 0, poiseMul: 2.2, ranged: { kind: 'arrow', speed: 60, life: 1.9, radius: 0.3 } },
+  },
+  staff: {
+    light: [
+      { clip: 'cast', windup: 0.3, active: 0.1, recover: 0.38, motion: 1.0, arcFrom: 0, arcTo: 0, stamina: 6, knock: 1.4, step: 0, ranged: { kind: 'glintstone', speed: 30, life: 2.0 } },
+      { clip: 'cast', windup: 0.24, active: 0.1, recover: 0.38, motion: 1.0, arcFrom: 0, arcTo: 0, stamina: 6, knock: 1.4, step: 0, ranged: { kind: 'glintstone', speed: 30, life: 2.0 } },
+      { clip: 'cast', windup: 0.26, active: 0.1, recover: 0.44, motion: 1.2, arcFrom: 0, arcTo: 0, stamina: 7, knock: 2.0, step: 0, ranged: { kind: 'glintstone', speed: 32, life: 2.0 } },
+    ],
+    heavy: { clip: 'cast', windup: 0.72, active: 0.12, recover: 0.6, motion: 2.6, arcFrom: 0, arcTo: 0, stamina: 12, fp: 18, knock: 6, step: 0, poiseMul: 2.4, ranged: { kind: 'comet', speed: 38, life: 2.2 } },
+  },
   greatsword: {
     light: [
       { clip: 'light1', windup: 0.24, active: 0.17, recover: 0.42, motion: 1.0, arcFrom: -80, arcTo: 80, stamina: 17, knock: 2.5, step: 1.3 },

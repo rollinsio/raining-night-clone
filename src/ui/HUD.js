@@ -106,7 +106,9 @@ const CSS = `
 .h-slot.empty svg { opacity: 0.3; }
 .h-slot.s svg { inset: 5px; width: auto; height: auto; opacity: 0.85; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); }
 .h-slot .n { position: absolute; right: 7px; bottom: 2px; font-size: 17px; color: ${INK}; }
-.h-slot .k { position: absolute; right: 5px; bottom: 2px; font-size: 11px; color: ${UI.dim}; }
+.h-slot .k { position: absolute; left: 6px; top: 3px; font-size: 11px; color: ${UI.dim}; }
+.h-slot.tap, .h-art.tap { filter: brightness(1.6); transition: none; }
+.h-slot.c.drink { box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 0 22px ${alpha(UI.gold, 0.55)}; transition: box-shadow 0.15s; }
 .h-arts { position: absolute; left: 50%; bottom: 30px; width: 0; height: 0; }
 .h-art { position: absolute; border-radius: 50%; background: radial-gradient(circle at 50% 40%, rgba(30,36,58,0.74), rgba(6,8,14,0.84) 72%); box-shadow: 0 0 0 1px ${alpha(RING_BLUE, 0.62)}, 0 0 0 2px rgba(0,0,0,0.4), 0 0 12px ${alpha(RING_BLUE, 0.32)}, inset 0 0 18px ${alpha(RING_BLUE, 0.2)}; }
 .h-art::before { content: ''; position: absolute; inset: 3px; border-radius: 50%; border: 1px solid ${alpha(RING_BLUE, 0.26)}; box-shadow: inset 0 0 6px ${alpha(RING_BLUE, 0.18)}; }
@@ -220,6 +222,13 @@ export class HUD {
     this.game = game;
     const root = this.root = document.getElementById('hud');
     const style = document.createElement('style'); style.textContent = BASE_CSS + CSS; document.head.appendChild(style);
+    // The layout is proportioned for 1920×1080; on phone-sized screens (either dimension < 730px —
+    // portrait especially) scale the whole HUD uniformly so bands/bars/map fit. 1920×1080 stays at
+    // zoom 1, so the capture/critic pipeline is pixel-identical. Screen-projected placements
+    // (the reticle) divide by `zoom` to stay put.
+    this.zoom = 1;
+    const fit = () => { this.zoom = Math.min(1, innerWidth / 730, innerHeight / 730); root.style.zoom = this.zoom; };
+    fit(); window.addEventListener('resize', fit);
     root.innerHTML = DEFS + `
       <div class="h-tl"></div>
       <div class="h-lvl">${svg('roundel', '0 0 96 96')}<div class="v">1</div></div>
@@ -232,7 +241,7 @@ export class HUD {
       <canvas class="h-compass" width="${COMPASS_W}" height="${COMPASS_H}"></canvas>
       <div class="h-slots">
         <div class="h-slot l" title="Weapon">${weaponSvg('greatsword')}</div>
-        <div class="h-slot c empty" title="Item">${weaponSvg('flask', 0, 1.25)}<span class="n"></span></div>
+        <div class="h-slot c empty" title="Flask">${weaponSvg('flask', 0, 1.25)}<span class="n"></span><span class="k">C</span></div>
         <div class="h-slot s" title="Quick item">${weaponSvg('pot', 0, 1.75)}</div>
         <div class="h-slot r empty" title="Off-hand">${weaponSvg('shield', 0)}</div>
       </div>
@@ -246,14 +255,14 @@ export class HUD {
       <div class="h-prompt"><span class="u-key">E</span><span class="t"></span></div>
       <div class="h-warn">OUTSIDE THE NIGHT'S CIRCLE</div>
       <div class="h-title"><div class="b"></div><div class="u-orn"></div><div class="s"></div></div>
-      <div class="h-hint">move<b>W A S D</b><br>sprint<b>Shift</b><br>dodge roll<b>Space</b><br>light / heavy<b>LMB / RMB</b><br>lock-on<b>Q / MMB</b><br>interact<b>E</b><br>skill / ultimate<b>1 / 2</b><br>map<b>M</b><br>pause<b>Esc</b></div>`;
+      <div class="h-hint">move<b>W A S D</b><br>sprint<b>Shift</b><br>dodge roll<b>Space</b><br>light / heavy<b>LMB / RMB</b><br>lock-on<b>Q / MMB</b><br>interact<b>E</b><br>flask<b>C</b><br>skill / ultimate<b>1 / 2</b><br>map<b>M</b><br>pause<b>Esc</b></div>`;
     const q = (s) => root.querySelector(s);
     this.el = {
       hp: q('.h-hp .f'), hpTr: q('.h-hp .tr'), fp: q('.h-fp .f'), fpTr: q('.h-fp .tr'), st: q('.h-st .f'), stTr: q('.h-st .tr'), hpBar: q('.h-hp'), stBar: q('.h-st'), fpBar: q('.h-fp'),
       level: q('.h-lvl .v'), flask: q('.h-sub .flask'), flaskN: q('.h-sub .flask .n'), flaskSep: q('.h-sub .sep'), ultMini: q('.h-sub .art'),
       runes: q('.h-runes .v'), boss: q('.h-boss'), bossName: q('.h-boss .n'), bossFill: q('.h-boss .f'), bossTr: q('.h-boss .tr'),
       day: q('.h-day .t1'), timer: q('.h-day .t2'), compass: q('.h-compass'),
-      weaponSlot: q('.h-slot.l'), itemSlot: q('.h-slot.c'), itemN: q('.h-slot.c .n'), cdSkill: q('.h-art.s .cd'), cdUlt: q('.h-art.u .cd'),
+      weaponSlot: q('.h-slot.l'), itemSlot: q('.h-slot.c'), itemN: q('.h-slot.c .n'), potSlot: q('.h-slot.s'), offSlot: q('.h-slot.r'), artSkill: q('.h-art.s'), artUlt: q('.h-art.u'), cdSkill: q('.h-art.s .cd'), cdUlt: q('.h-art.u .cd'),
       reticle: q('.h-reticle'), prompt: q('.h-prompt'), promptT: q('.h-prompt .t'), promptK: q('.h-prompt .u-key'),
       warn: q('.h-warn'), title: q('.h-title'), titleB: q('.h-title .b'), titleS: q('.h-title .s'),
       reveal: q('.h-reveal'), revealB: q('.h-reveal .b'), revealS: q('.h-reveal .s'), hint: q('.h-hint'),
@@ -376,11 +385,13 @@ export class HUD {
     this._set('runes', p.runes | 0, (v) => { E.runes.textContent = String(v); });
     // flask count (only when the player has flasks): the row under the bars and the raised item slot
     const flasks = typeof p.flasks === 'number' ? p.flasks : -1;
+    const prevFlasks = L.flasks;
     this._set('flasks', flasks, (v) => {
       const on = v >= 0;
       E.flask.style.display = on ? 'flex' : 'none'; E.flaskSep.style.display = on ? 'block' : 'none';
       E.flask.classList.toggle('out', v === 0);
       if (on) E.flaskN.textContent = v;
+      if (typeof prevFlasks === 'number' && v < prevFlasks) { E.itemSlot.classList.add('drink'); setTimeout(() => E.itemSlot.classList.remove('drink'), 350); }
       E.itemSlot.classList.toggle('empty', v <= 0); E.itemSlot.classList.toggle('held', v > 0); E.itemN.textContent = on ? v : '';
     });
     // slots + arts
@@ -426,7 +437,7 @@ export class HUD {
 
       const vis = _v.z < 1;
       E.reticle.style.display = vis ? 'block' : 'none';
-      if (vis) E.reticle.style.transform = `translate(${((_v.x + 1) / 2 * innerWidth) | 0}px, ${((1 - _v.y) / 2 * innerHeight) | 0}px)`;
+      if (vis) E.reticle.style.transform = `translate(${((_v.x + 1) / 2 * innerWidth / this.zoom) | 0}px, ${((1 - _v.y) / 2 * innerHeight / this.zoom) | 0}px)`;
       L.ret = true;
     } else if (L.ret) { E.reticle.style.display = 'none'; L.ret = false; }
     // compass (10 Hz, skipped while hidden)

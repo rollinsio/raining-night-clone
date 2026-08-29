@@ -39,6 +39,7 @@ await page.goto(URL, { waitUntil: 'load' });
 await page.waitForFunction(() => window.__game && window.__game.ready, null, { timeout: 180000 });
 await ev(() => window.__game.setQuality('low'));
 check('boot: state HUB', await ev(() => window.__game.state === 'HUB'));
+check('hub: nightfarer preview rig shown', await ev(() => !!window.__game.game.hubPreview.rig && window.__game.game.hubPreview.id === 'Wylder'));
 
 await ev(() => window.__game.startExpedition('Wylder'));
 await page.waitForFunction(() => window.__game.state === 'EXPEDITION' && window.__game.game.player);
@@ -51,11 +52,15 @@ await page.keyboard.down('KeyW'); await step(1.5); await page.keyboard.up('KeyW'
 const p1 = await ev(() => { const p = window.__game.game.player.pos; return [p.x, p.z]; });
 check('WASD movement moves the player', Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) > 2, `moved ${Math.hypot(p1[0] - p0[0], p1[1] - p0[1]).toFixed(1)} m`);
 
-// sprint drains stamina, roll gives i-frames
+// sprint is free out of combat (Nightreign rule) and drains stamina in combat; roll gives i-frames
 await page.keyboard.down('ShiftLeft'); await page.keyboard.down('KeyW'); await step(1.0);
+const stFree = await ev(() => window.__game.game.player.stamina);
+check('sprint out of combat is free', stFree >= 110, `stamina ${stFree.toFixed(0)}`);
+await ev(() => { window.__game.game.player.combatT = 10; }); await step(1.0);
 const st = await ev(() => window.__game.game.player.stamina);
 await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft');
-check('sprint drains stamina', st < 110, `stamina ${st.toFixed(0)}`);
+await ev(() => { window.__game.game.player.combatT = 0; });
+check('sprint in combat drains stamina', st < 110, `stamina ${st.toFixed(0)}`);
 await page.keyboard.press('Space'); await step(0.1);
 check('roll state + i-frames', await ev(() => window.__game.game.player.state === 'roll' && window.__game.game.player.iframes > 0));
 await step(0.8);
@@ -134,6 +139,27 @@ await step(0.3); await realWait(0.2);
 check('player death emits overlay', await ev(() => !window.__game.game.player.alive && !!document.querySelector('.m-death')));
 await step(3.6);
 check('player respawns at grace', await ev(() => window.__game.game.player.alive && window.__game.game.player.hp === window.__game.game.player.maxHp));
+
+// ranged classes release a projectile on light attack
+await ev(() => window.__game.startExpedition('Ironeye'));
+await page.waitForFunction(() => window.__game.state === 'EXPEDITION' && window.__game.game.player);
+await ev(() => window.__game.setManual(true));
+await page.keyboard.press('KeyF'); await step(0.36);
+check('Ironeye fires an arrow', await ev(() => window.__game.game.combat.projectiles.list.some((p) => p.kind === 'arrow')));
+
+// touch: a double-tap on an enemy (either pad) locks onto that enemy
+await ev(() => {
+  const g = window.__game.game, p = g.player; g.touch.activate();
+  const e = g.entities.find((x) => x !== p && x.alive && x.team === 'enemy');
+  e.teleport(p.pos.x + Math.sin(p.yaw) * 8, p.pos.z + Math.cos(p.yaw) * 8); window.__tgt = e;
+});
+await step(0.3);
+check('touch: double-tap an enemy locks on', await ev(() => {
+  const g = window.__game.game, e = window.__tgt, v = e.pos.clone(); v.y += e.height * 0.5; v.project(g.camera);
+  const x = (v.x + 1) / 2 * innerWidth, y = (1 - v.y) / 2 * innerHeight, pad = document.querySelector('.t-pad.r');
+  for (let i = 0; i < 2; i++) pad.dispatchEvent(new PointerEvent('pointerdown', { clientX: x, clientY: y, pointerId: 7 + i, bubbles: true }));
+  return g.player.lockTarget === e;
+}));
 
 // pause + map toggles
 await page.keyboard.press('Escape'); await step(0.2);

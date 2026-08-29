@@ -1,20 +1,29 @@
 {
   "name": "nightreign-clone",
   "version": "1.0.0",
-  "description": "",
+  "description": "Slimveld — a browser/Android Nightreign demo",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite --port 5173",
+    "build": "vite build",
+    "preview": "vite preview",
+    "smoke": "node tools/smoke.mjs",
+    "android:sync": "vite build && cap sync android",
+    "android:apk": "vite build && cap sync android && cd android && ./gradlew assembleDebug"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.0",
     "three": "^0.185.1",
     "vite": "^8.2.2"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
     "playwright": "^1.62.1"
   }
 }
