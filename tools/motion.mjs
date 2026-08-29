@@ -14,7 +14,7 @@
  *                                          motion outside the active window, clipping, trail coverage)
  *
  * Usage: node tools/motion.mjs <action> [--views side,front,rear,top] [--step 2] [--dur 1.4] [--nf Wylder] [--name x]
- *   action: light1 | light2 | light3 | heavy | combo (light x3) | skill | roll | run
+ *   action: light1 | light2 | light3 | heavy | combo (light x3) | skill | roll | run (sprint) | walk
  *           soldier:light | soldier:heavy | knight:light | knight:heavy | wolf:light
  * Requires the dev server on :5173 (npx vite --port 5173).
  */
@@ -34,7 +34,7 @@ const action = argv.find((a) => !a.startsWith('--')) || 'light1';
 const opt = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 && argv[i + 1] !== undefined ? argv[i + 1] : d; };
 const VIEWS = opt('views', 'side,front,top').split(',');
 const STEP = +opt('step', 2);            // sim frames (1/60 s) per captured frame
-const DUR = +opt('dur', action === 'combo' ? 2.0 : action === 'run' ? 1.0 : 1.4);
+const DUR = +opt('dur', action === 'combo' ? 2.0 : action === 'run' || action === 'walk' ? 1.0 : 1.4);
 const NF = opt('nf', 'Wylder');
 const NAME = opt('name', action.replace(':', '_'));
 const OUT = path.join(ROOT, 'shots', 'motion', NAME);
@@ -131,7 +131,7 @@ await page.evaluate(() => {
       const s = st.subject;
       if (s === g.player) {
         if (action === 'roll') { s.buffer('roll'); return; }
-        if (action === 'run') { return; } // driven by input in step()
+        if (action === 'run' || action === 'walk') { return; } // driven by keyboard input from the node side
         if (action === 'skill') { s.buffer('skill'); return; }
         if (action === 'heavy') { s.buffer('heavy'); return; }
         s.buffer('light'); return;
@@ -178,6 +178,11 @@ await page.evaluate(() => {
         out.elbowDeg = +((Math.acos(Math.max(-1, Math.min(1, u1.dot(u2)))) * 180) / Math.PI).toFixed(1);
         if (b.hips && b.head) { _a.setFromMatrixPosition(b.hips.matrixWorld); _b.setFromMatrixPosition(b.head.matrixWorld); out.handTorso = +segDist(handW, _a, _b).toFixed(3); }
       }
+      if (rig && rig.bones && rig.bones.ankleL && rig.bones.ankleR) { // locomotion: ankle world positions + ground under them
+        const f = [];
+        for (const nm of ['ankleL', 'ankleR']) { _a.setFromMatrixPosition(rig.bones[nm].matrixWorld); f.push([+_a.x.toFixed(3), +(_a.y - g.terrain.getHeight(_a.x, _a.z)).toFixed(3), +_a.z.toFixed(3)]); }
+        out.feet = f; out.rootWorld = [+s.pos.x.toFixed(3), +s.pos.z.toFixed(3)];
+      }
       if (s.attack && s.attack.hitSet) out.hits = s.attack.hitSet.size;
       const trail = s._trail && s._trail.owner === s ? s._trail : null; out.trailSamples = trail ? trail.count : 0;
       return out;
@@ -222,7 +227,8 @@ for (const view of VIEWS) {
   await page.evaluate(({ off, lookUp }) => window.__motion.setView(off, lookUp), vd);
   await page.evaluate(() => window.__motion.resetOrigin());
   await page.evaluate((a) => window.__motion.start(a), sub);
-  if (sub === 'run') { await page.keyboard.down('ShiftLeft'); await page.keyboard.down('KeyW'); } // real input: W is camera-relative forward (+Z here)
+  if (sub === 'run') await page.keyboard.down('ShiftLeft');
+  if (sub === 'run' || sub === 'walk') await page.keyboard.down('KeyW'); // real input: W is camera-relative forward (+Z here)
   const list = [];
   for (let i = 0; i < nFrames; i++) {
     const t = +(((i + 1) * STEP) / 60).toFixed(3);
@@ -235,7 +241,7 @@ for (const view of VIEWS) {
     list.push({ file, mask, trace });
   }
   frames[view] = list;
-  if (sub === 'run') { await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft'); }
+  if (sub === 'run' || sub === 'walk') { await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft'); }
 }
 await page.evaluate(() => window.__motion.restore());
 
@@ -277,6 +283,31 @@ if (withTip.length && swing.length) {
 } else {
   const last = trace[trace.length - 1], d = last.root ? Math.hypot(last.root[0], last.root[1]) : 0;
   checks.push({ ok: true, name: 'no attack phases in this capture', detail: `locomotion/roll: root moved ${d.toFixed(2)} m in ${last.t.toFixed(2)} s (${(d / last.t).toFixed(2)} m/s)` });
+  // locomotion: skip the first 0.3 s (acceleration), then judge the planted foot's world speed, cadence and stride
+  const loco = trace.filter((f) => f.feet && f.t > 0.3);
+  if (loco.length > 4) {
+    const dt = STEP / 60, rootV = [];
+    for (let i = 1; i < loco.length; i++) rootV.push(Math.hypot(loco[i].rootWorld[0] - loco[i - 1].rootWorld[0], loco[i].rootWorld[1] - loco[i - 1].rootWorld[1]) / dt);
+    const vRoot = rootV.reduce((a, b) => a + b, 0) / rootV.length;
+    let planted = [], steps = 0;
+    for (const side of [0, 1]) {
+      let wasDown = false;
+      const floor = Math.min(...loco.map((f) => f.feet[side][1])); // stance = within 4 cm of this foot's lowest height
+      for (let i = 1; i < loco.length; i++) {
+        const a = loco[i - 1].feet[side], b = loco[i].feet[side], down = b[1] < floor + 0.04;
+        if (down && wasDown) planted.push(Math.hypot(b[0] - a[0], b[2] - a[2]) / dt);
+        if (down && !wasDown) steps++;
+        wasDown = down;
+      }
+    }
+    const span = loco[loco.length - 1].t - loco[0].t, cadence = steps / span, stride = cadence > 0 ? vRoot / cadence : 0;
+    const slideMean = planted.length ? planted.reduce((a, b) => a + b, 0) / planted.length : 0, slideMax = planted.length ? Math.max(...planted) : 0;
+    const ratio = vRoot > 0 ? slideMean / vRoot : 0;
+    checks.push({ ok: planted.length > 0, name: 'feet make ground contact', detail: `${planted.length} planted samples over ${span.toFixed(2)} s; cadence ${cadence.toFixed(1)} steps/s, stride ${stride.toFixed(2)} m at ${vRoot.toFixed(1)} m/s` });
+    checks.push({ ok: ratio <= 0.25, name: 'planted foot does not slide (≤ 25 % of body speed)', detail: `planted-foot world speed mean ${slideMean.toFixed(2)} m/s (${(ratio * 100).toFixed(0)} % of body speed), max ${slideMax.toFixed(2)} m/s` });
+    const lift = Math.max(...loco.flatMap((f) => [f.feet[0][1], f.feet[1][1]]));
+    checks.push({ ok: lift >= 0.12, name: 'feet lift clear of the ground', detail: `max ankle height ${lift.toFixed(2)} m` });
+  }
 }
 const phases = [];
 for (const f of trace) { const p = f.phase + (f.state === 'roll' ? '/roll' : ''); if (!phases.length || phases[phases.length - 1].p !== p) phases.push({ p, t0: f.t, t1: f.t }); else phases[phases.length - 1].t1 = f.t; }

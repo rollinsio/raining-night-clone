@@ -124,7 +124,7 @@ export class Player extends Entity {
     if (wantSprint && this.inCombat()) { this.stamina -= 11 * dt; this.staminaDelay = 0.5; } // Nightreign: sprinting is free out of combat
     if (this.lockTarget && !wantSprint) this.faceToward(this.lockTarget.pos.x, this.lockTarget.pos.z, dt, 14);
     else if (len > 0.001) this.faceToward(this.pos.x + move.x, this.pos.z + move.z, dt, 13);
-    if (this.speed > 0.4) { anim.play('run'); anim.ctx.speed = clamp((this.speed - 3) / (SPRINT - 3), 0, 1); this.state = 'move'; }
+    if (this.speed > 0.4) { anim.play('run'); anim.ctx.speed = clamp((this.speed - 3) / (SPRINT - 3), 0, 1); anim.ctx.mps = this.speed; this.state = 'move'; }
     else { anim.play('idle'); this.state = 'idle'; }
     // actions
     if (this.bufferAction === 'flask') { this.takeBuffer('flask'); this.drinkFlask(); return; }

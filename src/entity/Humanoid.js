@@ -275,7 +275,7 @@ export class Animator {
     // exact mode (attacks): the clip's curve is applied verbatim after a short crossfade from the pose it
     // interrupted, so fast swings are not smeared by the low-pass below (see play)
     this.from = new Float32Array(this.n * 4 + 4); this.blend = 0; this.blendT = 0;
-    this.ctx = { speed: 0, dur: 1, windup: 0.2, active: 0.15, recover: 0.4, param: 0 };
+    this.ctx = { speed: 0, dur: 1, windup: 0.2, active: 0.15, recover: 0.4, param: 0, mps: undefined };
     /** Optional per-step hook (dt) — used for secondary motion such as cloak lift; also runs in settle(). */
     this.onUpdate = null;
   }
@@ -353,7 +353,13 @@ function stance(P, dip = -0.05) {
  * folded, right leg (camera side) extended behind at toe-off, free arm pumped back, sword arm forward with the
  * blade pointing ahead and down.
  */
-const runCadence = (sp) => 1.15 + sp * 0.65;
+/**
+ * Cadence (cycles/s) follows the body's actual speed so the planted foot carries the body its full stride instead of
+ * gliding: ctx.mps (metres/s, written by Player / Enemy while moving) over the cycle length — 2.2 m at a jog rising
+ * to 3.0 m at a sprint (two steps per cycle). Without ctx.mps (screenshot poses) the speed is inferred from ctx.speed.
+ */
+const runCycleLen = (sp) => 2.2 + sp * 0.8;
+const runCadence = (sp, mps) => (mps ?? 3 + 6.3 * sp) / runCycleLen(sp);
 export const HERO_SPEED = 0.85;
 const HERO_PH = 1.0; // phase of the LEFT leg at the hero frame (right leg is PI ahead)
 const RUN_PH0 = HERO_PH - (40 / 60) * TAU * runCadence(HERO_SPEED);
@@ -511,11 +517,13 @@ export const HUMANOID_CLIPS = {
    */
   run(t, P, ctx) {
     const sp = clamp01(ctx.speed);
-    const ph = t * TAU * runCadence(sp) + RUN_PH0;
+    const ph = t * TAU * runCadence(sp, ctx.mps) + RUN_PH0;
     const s = Math.sin(ph), c = Math.cos(ph);
     const leg = 1 + sp * 0.25, arm = 1 + sp * 0.35, lean = 0.2 + sp * 0.16;
-    // per-leg phase p: thigh peaks forward at PI/2, plants ~2.3, drives back through stance, toes off ~4.6
-    const thigh = (ss) => -0.28 * leg - 0.66 * leg * ss;
+    // per-leg phase p: thigh peaks forward at PI/2, plants ~2.3, drives back through stance, toes off ~4.6.
+    // Thigh swing sized so the ankle's stance travel matches the stride (runCycleLen / 2).
+    const swing = 0.72 + sp * 0.4;
+    const thigh = (ss) => -0.28 * leg - swing * ss;
     const knee = (p) => 0.14 + 1.55 * leg * Math.pow(Math.max(0, Math.sin(p + 0.9)), 2.4) + 0.4 * Math.pow(Math.max(0, Math.sin(p - 2.0)), 2);
     const toe = (ss) => 0.22 * Math.pow(Math.max(0, -ss), 1.4) - 0.2 * Math.max(0, ss); // toe skims the ground at toe-off, heel leads on landing
     // the swinging knee drifts a little outward so it clears the body silhouette
