@@ -3,6 +3,19 @@
 One line per module: what exists, and any known stubs. Folder ownership per ARCHITECTURE.md; the
 skeleton build touched every folder once — later builders own their folders from here.
 
+## On-page detail control (2026-08-25)
+
+### ui
+- `ui/Settings.js` — NEW: the `DETAIL` tier ladder (`high` / `medium` / `low`, each entry holding `postfx`, `shadows`, `shadowMap`) plus the `Settings` panel — an always-present segmented control pinned to the bottom-right of the *page* (its own `#panel` layer in `index.html`, outside the in-world HUD) with a live fps readout, so the cost of a tier is visible while you pick it. Hovering a tier shows what it turns on. Dims to a hint and stops taking clicks while the pointer is locked; `setVisible(false)` hides it outright for screenshot poses. Tier persists in `localStorage` under `nightreign.settings.v1`.
+- `ui/Menus.js` — the pause menu's quality row is now a Detail row generated from the same `DETAIL` ladder, so both controls offer the same three tiers and stay in sync.
+
+### core / render
+- `core/Game.js` — boots at the persisted tier (`loadDetail()`, applied once postfx/atmosphere exist); `setQuality(id)` resolves the tier through `getDetail()`, applies it, saves it and emits `quality:changed`; `settings.update(dt)` joins the per-step system order after `hud`.
+- `core/Debug.js` — `screenshotPose()` hides the detail panel, `resume()` restores it, so captures show the frame only.
+- `render/Atmosphere.js` — `setQuality()` takes a tier object (`shadows`, `shadowMap`); a bare tier id still works.
+
+Medium is new: post chain on, sun shadow map at 1024. `high` and `low` behave exactly as before.
+
 ## Gauntlet round 3 — vista & atmosphere (2026-08-21)
 
 Critic gap (own read of the round-2 capture; the critic's frame was a black capture fault): flat overcast sky with no gradient and a moon that barely read, a dense carpet of identical ochre tufts, single-value olive mid-ground with no faceted rock, 1.1 M tris / 320 draw calls.

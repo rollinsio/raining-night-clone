@@ -8,14 +8,15 @@
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #07080f; }
   body { font-family: Georgia, 'Times New Roman', serif; color: #d8d4c8; user-select: none; -webkit-user-select: none; }
   #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
-  #hud, #menu { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
-  #menu > * { pointer-events: auto; }
+  #hud, #menu, #panel { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  #menu > *, #panel > * { pointer-events: auto; }
 </style>
 </head>
 <body>
 <canvas id="c" tabindex="0"></canvas>
 <div id="hud"></div>
 <div id="menu"></div>
+<div id="panel"></div>
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>

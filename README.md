@@ -13,6 +13,8 @@ npx vite --port 5173      # http://localhost:5173 — click the canvas for point
 
 Controls: **WASD** move · **Shift** sprint · **Space** roll (i-frames) · **LMB** light · **RMB** heavy · **Q** lock-on · **E** interact/rest · **1/2** skill/ultimate · **M** map · **Esc** pause.
 
+Detail: a **High / Medium / Low** selector sits in the bottom-right of the page (also in the pause menu) with a live fps readout beside it. High runs the post chain and 2048 sun shadows, Medium drops the shadow map to 1024, Low skips the post pass and sun shadows entirely. The choice is remembered in localStorage.
+
 Performance: **~270 fps uncapped at 1920×1080** on an M-series GPU (measured with `tools/fps-probe.mjs` in headed Chromium), against a 60 fps target.
 
 ## What's in it

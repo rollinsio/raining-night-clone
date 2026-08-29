@@ -1,9 +1,11 @@
 /**
  * DOM menus: hub (nightfarer select), pause, level-up (grace), death overlay, results.
+ * The pause menu's detail row and the always-on page panel (ui/Settings.js) drive the same tier ladder.
  * Opening a gameplay menu pauses the sim and releases pointer lock; closing re-enables input.
  */
 import { requestLock } from '../core/Input.js';
 import { UI, FONT, TEXT_SHADOW, BASE_CSS, alpha } from './Theme.js';
+import { DETAIL } from './Settings.js';
 
 const CSS = BASE_CSS + `
 #menu { font-family: ${FONT}; color: ${UI.text}; text-shadow: ${TEXT_SHADOW}; }
@@ -108,7 +110,7 @@ export class Menus {
     const s = this._show('pause', `
       <div class="m-panel"><div class="m-h1">PAUSED</div><div class="m-h2">Expedition · Day ${this.game.run ? this.game.run.day : 1}</div>
       <button class="m-btn" id="m-resume">Resume</button>
-      <div class="m-quality"><span class="m-row" style="padding:8px 10px">Quality</span><button class="m-btn" data-q="high">High</button><button class="m-btn" data-q="low">Low</button></div>
+      <div class="m-quality"><span class="m-row" style="padding:8px 10px">Detail</span>${DETAIL.map((d) => `<button class="m-btn" data-q="${d.id}">${d.label}</button>`).join('')}</div>
       <div class="m-line"></div>
       <button class="m-btn" id="m-abandon">Abandon Expedition</button>
       <div class="m-small">Esc to resume</div></div>`);

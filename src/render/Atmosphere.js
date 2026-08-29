@@ -287,10 +287,11 @@ export class Atmosphere {
     this.game.renderer.setClearColor(this.fogColor, 1);
   }
 
+  /** Detail tier (a ui/Settings.js DETAIL entry, or a bare tier id): sun shadow on/off and map size. */
   setQuality(q) {
-    const high = q === 'high';
-    this.sun.castShadow = high;
-    this.sun.shadow.mapSize.set(high ? 2048 : 1024, high ? 2048 : 1024);
+    const d = typeof q === 'string' ? { shadows: q !== 'low', shadowMap: q === 'high' ? 2048 : 1024 } : q;
+    this.sun.castShadow = d.shadows;
+    this.sun.shadow.mapSize.set(d.shadowMap, d.shadowMap);
     if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
   }
 }

@@ -1,6 +1,6 @@
 /**
  * Game: renderer/scene/camera, world construction, fixed-step loop with hit-stop time scale,
- * the HUB -> EXPEDITION -> RESULTS state machine, entity list and quality switch.
+ * the HUB -> EXPEDITION -> RESULTS state machine, entity list and detail-tier switch.
  * System order per step: input -> player -> entities -> combat -> run -> graces -> camera -> hud -> atmosphere -> render.
  */
 import * as THREE from 'three';
@@ -20,6 +20,7 @@ import { Expedition } from '../run/Expedition.js';
 import { GraceSystem } from '../run/Grace.js';
 import { HUD } from '../ui/HUD.js';
 import { Menus } from '../ui/Menus.js';
+import { Settings, getDetail, loadDetail, saveDetail } from '../ui/Settings.js';
 import { GameMap } from '../ui/Map.js';
 import { NIGHTFARERS, getNightfarer } from '../nightfarers/index.js';
 
@@ -46,7 +47,7 @@ export class Game {
     this.player = null; this.run = null;
     this.state = 'BOOT';
     this.time = 0; this.hitStopT = 0; this.paused = false; this.posing = false;
-    this.ready = false; this.quality = 'high';
+    this.ready = false; this.quality = loadDetail();
     this.fps = 0; this._dts = new Float32Array(60); this._dti = 0; this.fpsCap = 0; this._last = 0; this._acc = 0; this._capAcc = 0;
     this.frameCount = 0;
   }
@@ -63,7 +64,9 @@ export class Game {
     this.cameraCtl = new CameraController(this);
     this.hud = new HUD(this);
     this.menus = new Menus(this);
+    this.settings = new Settings(this);
     this.map = new GameMap(this);
+    this.setQuality(this.quality); // apply the persisted detail tier now that postfx/atmosphere exist
     installDebug(this);
     window.addEventListener('resize', () => this.resize());
     this.input.onLockChange = (locked) => {
@@ -126,10 +129,14 @@ export class Game {
 
   requestHitStop(t) { this.hitStopT = Math.max(this.hitStopT, t); }
 
+  /** Apply a detail tier (see ui/Settings.js DETAIL) and remember it for the next visit. */
   setQuality(q) {
-    this.quality = q === 'low' ? 'low' : 'high';
-    this.postfx.enabled = this.quality === 'high';
-    this.atmosphere.setQuality(this.quality);
+    const d = getDetail(q);
+    this.quality = d.id;
+    this.postfx.enabled = d.postfx;
+    this.atmosphere.setQuality(d);
+    saveDetail(d.id);
+    this.events.emit('quality:changed', d.id);
   }
 
   resize() {
@@ -185,6 +192,7 @@ export class Game {
     }
     this.cameraCtl.update(dt);
     this.hud.update(dt);
+    this.settings.update(dt);
     this.atmosphere.update(dt);
     this.postfx.update(dt);
     this.terrain.update(this.camera.position);

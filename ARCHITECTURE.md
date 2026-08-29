@@ -44,6 +44,7 @@ src/meta/Relics.js         persistence via localStorage: relics owned, vessel sl
 src/ui/HUD.js              HP/FP/stamina bars (top-left), runes (bottom-right), boss bar (bottom-center), day/timer + ring indicator, lock-on reticle, pickup prompts, damage numbers off
 src/ui/Menus.js            title, hub menus, level-up, inventory, death ("YOU DIED" style), victory, pause
 src/ui/Map.js              fullscreen map (M): POIs, grace, ring circle + next circle, player marker
+src/ui/Settings.js         DETAIL tier ladder (high/medium/low) + the always-on page panel (bottom-right) that selects it; persisted in localStorage
 src/audio/Audio.js         WebAudio procedural: ambient drone, wind, hit thuds, sword swish, grace chime, boss drums
 tools/screenshot.mjs       playwright: boots dev server URL, poses via window.__game, captures 1920×1080 PNGs + fps
 ```
@@ -53,7 +54,7 @@ tools/screenshot.mjs       playwright: boots dev server URL, poses via window.__
 - Units: metres. Player height 1.8. Map ~1200×1200 m. Y up.
 - `Game` exposes `game.scene`, `game.camera`, `game.renderer`, `game.events`, `game.input`, `game.rng`, `game.terrain`, `game.player`, `game.entities` (array), `game.run` (Expedition), `game.hud`.
 - Systems implement `update(dt)`; Game calls them in order: input → player → entities → combat → run → camera → hud → atmosphere → render.
-- Events (string names): `player:hit`, `enemy:died`, `runes:changed`, `boss:start`, `boss:phase`, `boss:died`, `day:changed`, `ring:phase`, `grace:rest`, `levelup`, `loot:pickup`, `player:died`, `run:won`, `run:lost`.
+- Events (string names): `player:hit`, `enemy:died`, `runes:changed`, `boss:start`, `boss:phase`, `boss:died`, `day:changed`, `ring:phase`, `grace:rest`, `levelup`, `loot:pickup`, `player:died`, `run:won`, `run:lost`, `quality:changed`.
 - Materials: `MeshStandardMaterial` with `flatShading: true`, roughness ~0.9, metalness 0, plus vertex colours for terrain. Characters use a custom toon-ish gradient via `MeshToonMaterial` with a 3-step gradient map, or flat-shaded standard — keep consistent across all entities (Style.js decides).
 - Humanoids have NO facial features. Heads are smooth capsules/spheres. Bodies are tapered boxes/capsules. Cloth via simple hanging quads with vertex sway.
 - Colours: the palette lives in `Style.js` — every builder imports it. Never hardcode hex in other modules.

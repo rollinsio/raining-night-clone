@@ -2,6 +2,7 @@
  * window.__game debug API (mandatory for critics / the screenshot tool):
  * teleport, setTime, spawn, killAll, setFps, screenshotPose(name), fps, ready, setQuality, startExpedition, resume.
  * Poses are deterministic compositions; the sim is frozen afterwards (call resume() to continue).
+ * Posing also hides the on-page detail panel so captures show the frame only.
  */
 import * as THREE from 'three';
 import { composeCombatPose } from '../combat/Pose.js';
@@ -148,8 +149,8 @@ export function installDebug(game) {
     setFps(n) { game.fpsCap = n > 0 ? n : 0; },
     setQuality(q) { game.setQuality(q); },
     startExpedition(nf = 'Wylder') { game.startExpedition(nf); },
-    screenshotPose(name) { const f = poses[name]; if (!f) throw new Error('unknown pose ' + name + ' (' + Object.keys(poses).join(', ') + ')'); f(); return name; },
-    resume() { game.posing = false; unfreezeAll(); },
+    screenshotPose(name) { const f = poses[name]; if (!f) throw new Error('unknown pose ' + name + ' (' + Object.keys(poses).join(', ') + ')'); game.settings.setVisible(false); f(); return name; },
+    resume() { game.posing = false; unfreezeAll(); game.settings.setVisible(true); },
     /** When true the frame loop only renders; advance() is the sole sim driver (deterministic tests). */
     setManual(on = true) { game.manualSim = !!on; },
     /** Step the simulation synchronously (deterministic tests): n fixed 1/60 s updates, no rendering. */
