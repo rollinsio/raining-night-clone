@@ -161,6 +161,13 @@ export class Limveld {
       kit.group.updateMatrixWorld(true);
       this.group.add(kit.group);
       p.y = y; p.group = kit.group;
+      // kit solids (walls, piers, towers, tents) into the world collider grid, rotated with the kit
+      const C = this.game.colliders;
+      if (C && kit.solids) for (const s of kit.solids) {
+        const x = p.x + s.x * cs + s.z * sn, z = p.z - s.x * sn + s.z * cs;
+        if (s.r !== undefined) C.add(x, z, s.r, 'struct', y + s.y0, y + s.y1);
+        else C.addBox(x, z, s.hw, s.hd, s.yaw + p.yaw, 'struct', y + s.y0, y + s.y1);
+      }
       for (const s of kit.spawns) {
         const x = p.x + s.x * cs + s.z * sn, z = p.z - s.x * sn + s.z * cs;
         this.enemySpawns.push({ type: s.type, x, z, home: { x: p.x, z: p.z }, patrolR: p.type === 'camp' ? 7 : 9, tier: p.type === 'fort' ? 2 : 1 });

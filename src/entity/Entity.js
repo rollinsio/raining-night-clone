@@ -10,6 +10,7 @@ const _fwd = new THREE.Vector3();
 const _n = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 const GRAVITY = 24;
+const MAX_CLIMB = 0.9; // steepest walkable rise over run (~42 deg); steeper heightfield is a wall
 
 export class Entity {
   constructor(game, { name = 'entity', team = 'enemy', hp = 100, stamina = 100, poise = 30, radius = 0.45, height = 1.8 } = {}) {
@@ -71,21 +72,43 @@ export class Entity {
     this.yaw += Math.abs(d) < step ? d : Math.sign(d) * step;
   }
 
-  /** Gravity + terrain collision + static solids + map bounds. Knockback decays here. */
+  /**
+   * Gravity + terrain collision + static solids + map bounds. Knockback decays here.
+   * Slopes steeper than MAX_CLIMB (rise over run) cannot be climbed: the uphill part of the step is dropped so the
+   * body slides along the contour, and if even that climbs too steeply the horizontal step is cancelled. Descents
+   * are never blocked, so nothing can be trapped on a hillside.
+   */
   applyPhysics(dt) {
     const T = this.game.terrain;
     this.vel.y -= GRAVITY * dt;
     const kx = this.knock.x, kz = this.knock.z;
-    this.pos.x += (this.vel.x + kx) * dt;
-    this.pos.z += (this.vel.z + kz) * dt;
+    const x0 = this.pos.x, z0 = this.pos.z;
+    let mx = (this.vel.x + kx) * dt, mz = (this.vel.z + kz) * dt;
     this.pos.y += this.vel.y * dt;
     const kd = Math.exp(-9 * dt);
     this.knock.x *= kd; this.knock.z *= kd;
+    const md = Math.hypot(mx, mz);
+    if (md > 1e-5) {
+      const h0 = T.getHeight(x0, z0);
+      if (T.getHeight(x0 + mx, z0 + mz) - h0 > MAX_CLIMB * md) {
+        // too steep: remove the component that climbs the gradient (the terrain normal's XZ points downhill)
+        T.getNormal(x0 + mx * 0.5, z0 + mz * 0.5, _n);
+        const gl = Math.hypot(_n.x, _n.z);
+        if (gl > 1e-5) {
+          const ux = -_n.x / gl, uz = -_n.z / gl, up = mx * ux + mz * uz; // uphill unit vector, uphill component
+          if (up > 0) { mx -= ux * up; mz -= uz * up; }
+        }
+        const md2 = Math.hypot(mx, mz);
+        if (md2 < 1e-5 || T.getHeight(x0 + mx, z0 + mz) - h0 > MAX_CLIMB * md2) { mx = 0; mz = 0; }
+        this.blocked = true;
+      } else this.blocked = false;
+    }
+    this.pos.x = x0 + mx; this.pos.z = z0 + mz;
     const lim = T.half - 14;
     if (this.pos.x > lim) this.pos.x = lim; else if (this.pos.x < -lim) this.pos.x = -lim;
     if (this.pos.z > lim) this.pos.z = lim; else if (this.pos.z < -lim) this.pos.z = -lim;
-    // static solids (tree trunks): slide out of any we overlap before sampling the ground under the final spot
-    if (this.game.colliders) this.game.colliders.resolve(this.pos, this.radius);
+    // static solids (trunks, rocks, walls): slide out of any we overlap before sampling the ground under the final spot
+    if (this.game.colliders) this.game.colliders.resolve(this.pos, this.radius, this.height, Math.max(this.pos.y, T.getHeight(this.pos.x, this.pos.z)));
     const h = T.getHeight(this.pos.x, this.pos.z);
     if (this.pos.y <= h) { this.pos.y = h; if (this.vel.y < 0) this.vel.y = 0; this.onGround = true; }
     else this.onGround = this.pos.y - h < 0.05;

@@ -132,6 +132,7 @@ export class Kit {
     /** Built floor height (kit space) for geometry standing on a plinth / paved floor; null = the terrain. */
     this.floor = null;
     this.feet = [];    // kit-space footprints of geometry rooted in the ground (decal halos)
+    this.solids = [];  // kit-space walk-blocking footprints {x, z, hw, hd, yaw | r, y0, y1} (Limveld feeds them to Colliders)
     this.tracks = [];  // trodden-dirt polylines [{pts, w}]
     this.decal = null; // {x0, x1, z0, z1, cell} extent of the ground decal
     /** Shading knobs: gentle massing AO (aoBase at the ground -> 1 at aoTop), foundation band (bandK darker at the
@@ -174,6 +175,13 @@ export class Kit {
     if (!(Number.isFinite(cx + cy + cz + rx + ry + rz) && Number.isFinite(color))) throw new Error(`Kit.add: non-finite argument (${[color, cx, cy, cz, rx, ry, rz].join(', ')})`);
     _e.set(rx, ry, rz); _q.setFromEuler(_e); _p.set(cx, cy, cz); _m.compose(_p, _q, _s).premultiply(this.frame);
     if (geo.index) geo = geo.toNonIndexed();
+    // walk-blocking footprint from the local bounds (before the transform) — o.solid:false for floors and steps
+    const solid = o.solid !== false && !o.glow && o.ao !== false;
+    let bb = null;
+    if (solid) { // plain numbers: applyMatrix4 below would recompute geo.boundingBox in place
+      geo.computeBoundingBox(); const b = geo.boundingBox;
+      bb = { cx: (b.min.x + b.max.x) / 2, cz: (b.min.z + b.max.z) / 2, hw: (b.max.x - b.min.x) / 2, hd: (b.max.z - b.min.z) / 2 };
+    }
     geo.applyMatrix4(_m);
     const n = geo.attributes.position.count, pos = geo.attributes.position.array, col = new Float32Array(n * 3), mask = new Float32Array(n), warm = new Float32Array(n);
     _col.setHex(color);
@@ -199,17 +207,36 @@ export class Kit {
     geo.setAttribute('aomask', new THREE.BufferAttribute(mask, 1));
     geo.setAttribute('warm', new THREE.BufferAttribute(warm, 1));
     if (shade && o.foot !== false) this.feet.push({ x0, x1, y0, y1, z0, z1 });
+    if (solid) this._solid(bb, rx, rz, x0, x1, y0, y1, z0, z1, o);
     (o.glow ? this.glows : this.geos).push(geo);
+  }
+  /**
+   * Record a walk-blocking footprint (kit space) for the piece just added: an oriented box for yaw-only pieces
+   * (a cylinder for o.round ones), the kit-space AABB for tilted ones. Flat slabs, thin poles and pieces entirely
+   * below the knee or above head height are skipped, so copings, ropes, merlons and roof timbers never register.
+   */
+  _solid(bb, rx, rz, x0, x1, y0, y1, z0, z1, o) {
+    if (y1 - y0 < 0.35) return;
+    let s;
+    if (rx === 0 && rz === 0) {
+      const e = _m.elements, yaw = Math.atan2(e[8], e[10]);
+      _p.set(bb.cx, 0, bb.cz).applyMatrix4(_m);
+      s = o.round ? { x: _p.x, z: _p.z, r: Math.max(bb.hw, bb.hd), y0, y1 } : { x: _p.x, z: _p.z, hw: bb.hw, hd: bb.hd, yaw, y0, y1 };
+    } else s = { x: (x0 + x1) / 2, z: (z0 + z1) / 2, hw: (x1 - x0) / 2, hd: (z1 - z0) / 2, yaw: 0, y0, y1 };
+    if ((s.r !== undefined ? s.r * 2 : Math.max(s.hw, s.hd) * 2) < 0.22) return;
+    const floor = this.floorAt(s.x, s.z);
+    if (y1 < floor + 0.55 || y0 > floor + 2.2) return;
+    this.solids.push(s);
   }
   _boxGeo(w, h, d, seg) { const s = seg ?? 1.5; return new THREE.BoxGeometry(w, h, d, Math.max(1, Math.round(w / s)), Math.max(1, Math.round(h / s)), Math.max(1, Math.round(d / s))); }
   /** Box with its base at y. Faces are subdivided every o.seg metres (default 1.5) so baked light can vary across them. */
   box(w, h, d, x, y, z, color, o = {}) { this.add(this._boxGeo(w, h, d, o.seg), color, x, y + h / 2, z, o.rx || 0, o.ry || 0, o.rz || 0, o); }
   /** Box positioned by centre with arbitrary rotation. */
   boxC(w, h, d, x, y, z, color, rx = 0, ry = 0, rz = 0, o = {}) { this.add(this._boxGeo(w, h, d, o.seg), color, x, y, z, rx, ry, rz, o); }
-  cyl(rt, rb, h, segs, x, y, z, color, o = {}) { this.add(new THREE.CylinderGeometry(rt, rb, h, segs, 1, !!o.open), color, x, y + h / 2, z, o.rx || 0, o.ry || 0, o.rz || 0, o); }
+  cyl(rt, rb, h, segs, x, y, z, color, o = {}) { this.add(new THREE.CylinderGeometry(rt, rb, h, segs, 1, !!o.open), color, x, y + h / 2, z, o.rx || 0, o.ry || 0, o.rz || 0, { round: true, ...o }); }
   /** Cylinder by centre with rotation (for fallen columns / logs). */
   cylC(rt, rb, h, segs, x, y, z, color, rx = 0, ry = 0, rz = 0, o = {}) { this.add(new THREE.CylinderGeometry(rt, rb, h, segs, 1), color, x, y, z, rx, ry, rz, o); }
-  cone(r, h, segs, x, y, z, color, o = {}) { this.add(new THREE.ConeGeometry(r, h, segs), color, x, y + h / 2, z, o.rx || 0, o.ry || 0, o.rz || 0, o); }
+  cone(r, h, segs, x, y, z, color, o = {}) { this.add(new THREE.ConeGeometry(r, h, segs), color, x, y + h / 2, z, o.rx || 0, o.ry || 0, o.rz || 0, { round: true, ...o }); }
   prism(w, h, d, x, y, z, color, o = {}) { this.add(prismGeo(w, h, d), color, x, y, z, o.rx || 0, o.ry || 0, o.rz || 0, o); }
   /** Wedge: vertical face at z (height h) sloping to zero at z + d, spanning x +- w/2 (set-off caps, copings). */
   wedge(w, d, h, x, y, z, color, o = {}) { this.add(wedgeGeo(w, d, h), color, x, y, z, o.rx || 0, o.ry || 0, o.rz || 0, o); }
@@ -424,15 +451,15 @@ export class Kit {
     }
     const decal = this._buildDecal();
     if (decal) group.add(decal);
-    return { group, spawns: this.spawns, fires: this.fires, radius: this.radius };
+    return { group, spawns: this.spawns, fires: this.fires, radius: this.radius, solids: this.solids };
   }
 }
 
 /** Raised stone platform with a deep footing (so sloping ground never shows a gap) and a pale coping course on top. */
 function plinth(k, x0, x1, z0, z1, top, dark, light) {
   const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-  k.box(w, top - 0.22 + 4, d, cx, -4, cz, dark, { seg: 3, tint: 0.95 });
-  k.box(w + 0.4, 0.22, d + 0.4, cx, top - 0.22, cz, light, { seg: 3, tint: 0.9 });
+  k.box(w, top - 0.22 + 4, d, cx, -4, cz, dark, { seg: 3, tint: 0.95, solid: false }); // walkable floor
+  k.box(w + 0.4, 0.22, d + 0.4, cx, top - 0.22, cz, light, { seg: 3, tint: 0.9, solid: false });
 }
 
 /**
@@ -445,7 +472,7 @@ function causeway(k, cx, pts, w, o = {}) {
   for (let i = 0; i < pts.length - 1; i++) {
     const [z0, y0] = pts[i], [z1, y1] = pts[i + 1], dz = z1 - z0, dy = y1 - y0, len = Math.hypot(dz, dy), a = Math.atan2(dy, dz);
     const mz = (z0 + z1) / 2, my = (y0 + y1) / 2;
-    k.boxC(w, 1.6, len + 0.3, cx, my - 0.45, mz, color, a, 0, 0, { tint: 0.95, seg: 1.5 });
+    k.boxC(w, 1.6, len + 0.3, cx, my - 0.45, mz, color, a, 0, 0, { tint: 0.95, seg: 1.5, solid: false }); // road: walkable
     for (const sx of [-1, 1]) k.boxC(0.6, 1.1, len + 0.3, cx + sx * (hw + 0.3), my + 0.5, mz, trim, a, 0, 0, { tint: 0.85, seg: 1.5 });
   }
   if (!posts) return;
@@ -741,7 +768,12 @@ export function fort(rng, o = {}) {
 
   // --- keep with lit lancets and a tall tower
   const kz = -6, KW = 18, KD = 15, KH = 20, kf = kz + KD / 2 + 0.01;
-  k.box(KW, KH, KD, 0, 0, kz, ST, { seg: 2, ...fw });
+  // (collision builder) the keep is solid now: a pointed doorway and a 3 m recess in its front face hold the keep chest
+  const DW = 3.4, DH = 5.4, DD = 3.0, FT = 1.0;
+  k.push(0, kf - FT / 2, 0); k.gothicWall(KW, KH, FT, [{ x: 0, w: DW, h: DH, sill: 0 }], ST, { seg: 2, ...fw }); k.pop();
+  for (const sx of [-1, 1]) k.box((KW - DW) / 2, KH, DD, sx * (DW + (KW - DW) / 2) / 2, 0, kf - FT - DD / 2, ST, { seg: 2, ...fw });
+  k.box(DW, KH - DH, DD, 0, DH, kf - FT - DD / 2, ST, { seg: 2, ...fw });
+  k.box(KW, KH, KD - FT - DD, 0, 0, kz - (FT + DD) / 2, ST, { seg: 2, ...fw });
   for (const y of [7, 14]) k.box(KW + 0.5, 0.3, KD + 0.5, 0, y, kz, SL, { tint: 0.95 });
   k.prism(KW + 1.2, 5.5, KD + 1.0, 0, KH - 0.2, kz, RF);
   k.box(0.36, 0.3, KD + 1.0, 0, KH - 0.2 + 5.5 - 0.2, kz, RD, { tint: 0.9 });
@@ -842,7 +874,7 @@ export function ruin(rng, o = {}) {
 export function catacombEntrance(rng, o = {}) {
   const k = new Kit(rng, o);
   const S = PALETTE.stone, SD = PALETTE.stoneDark, DK = PALETTE.boulderDark;
-  k.box(8, 0.9, 5, 0, 0, -1.0, SD);
+  k.box(8, 0.9, 5, 0, 0, -1.0, SD, { solid: false }); // threshold slab: walkable
   k.setFrame(0, 0, 0, 0.9); k.gothicWall(7.4, 5.4, 1.4, [{ x: 0, w: 3.2, h: 4.8, sill: 0 }], S); k.clearFrame();
   k.box(8.4, 1.2, 2.0, 0, 6.3, 0, SD); k.prism(8.4, 1.7, 2.0, 0, 7.5, 0, S);
   k.box(1.2, 5.4, 1.6, -3.7, 0.9, 0.2, SD); k.box(1.2, 5.4, 1.6, 3.7, 0.9, 0.2, SD);

@@ -57,8 +57,8 @@ export class Game {
   start() {
     this.terrain = new Terrain(this, { seed: this.seed }); this.terrain.generate();
     this.limveld = new Limveld(this, this.terrain, this.rng.fork(1)); this.limveld.plan();
+    this.colliders = new Colliders(this.terrain); // before the builders: structures and props register their solids
     this.terrain.build(); this.limveld.build();
-    this.colliders = new Colliders(this.terrain);
     this.props = new Props(this, this.terrain, this.limveld, this.rng.fork(2)); this.props.build();
     this.atmosphere = new Atmosphere(this);
     this.postfx = new Postfx(this.renderer, this.scene, this.camera);

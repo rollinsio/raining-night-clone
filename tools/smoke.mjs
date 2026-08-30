@@ -71,6 +71,68 @@ await page.keyboard.down('KeyW'); await step(2.0); await page.keyboard.up('KeyW'
 const treeD = await ev(() => { const p = window.__game.game.player; return Math.hypot(p.pos.x - 128, p.pos.z - 186); });
 check('tree trunks block the player', treeD >= 0.5 * 1.6 + 0.4 && treeD < 3, `stopped ${treeD.toFixed(2)} m from the trunk`);
 check('collider grid has trunks', await ev(() => window.__game.game.colliders.count > 500), await ev(() => window.__game.game.colliders.count + ' solids'));
+console.log('  solids by kind:', await ev(() => JSON.stringify(window.__game.game.colliders.kinds)));
+
+// boulder collision: the landmark boulder at (106,184) s=2.4 stops the player short of its centre
+await ev(() => { const g = window.__game.game; g.player.teleport(106, 177); g.player.yaw = 0; g.cameraCtl.setOrbit(Math.PI, 0.3, 5.6); g.cameraCtl.snap(); });
+await page.keyboard.down('KeyW'); await step(2.5); await page.keyboard.up('KeyW');
+const bD = await ev(() => { const p = window.__game.game.player; return Math.hypot(p.pos.x - 106, p.pos.z - 184); });
+check('boulders block the player', bD >= 1.6 && bD < 5, `stopped ${bD.toFixed(2)} m from the boulder centre`);
+
+// structure collision: walk at the church nave's +x side wall from outside (kit x 11 -> wall face at 5.25) and get stopped
+const churchLocal = () => { const g = window.__game.game, p = g.limveld.poi('church'), q = g.player.pos, cs = Math.cos(p.yaw), sn = Math.sin(p.yaw), dx = q.x - p.x, dz = q.z - p.z; return [dx * cs - dz * sn, dx * sn + dz * cs]; };
+await ev(() => {
+  const g = window.__game.game, p = g.limveld.poi('church'), cs = Math.cos(p.yaw), sn = Math.sin(p.yaw);
+  const L = (lx, lz) => ({ x: p.x + lx * cs + lz * sn, z: p.z - lx * sn + lz * cs });
+  const s = L(11, -12), d = L(10, -12);
+  g.player.teleport(s.x, s.z); g.player.yaw = Math.atan2(d.x - s.x, d.z - s.z); g.cameraCtl.setOrbit(g.player.yaw + Math.PI, 0.3, 5.6); g.cameraCtl.snap();
+});
+await page.keyboard.down('KeyW'); await step(3.0); await page.keyboard.up('KeyW');
+const wallX = (await ev(churchLocal))[0];
+check('church walls block the player', wallX > 5.8 && wallX < 10.5, `kit x ${wallX.toFixed(2)} (wall face at 5.25)`);
+
+// reachability: flood-fill (0.5 m cells, body radius 0.42, climb limit) from the nearest grace / POI approach to every loot item
+const unreachable = await ev(() => {
+  const g = window.__game.game, T = g.terrain, C = g.colliders, R = 0.42, cell = 0.5, MAX = 0.9;
+  const reach = (sx, sz, tx, tz) => {
+    const half = 45, n = Math.floor(2 * half / cell) + 1, ox = tx - half, oz = tz - half;
+    const seen = new Uint8Array(n * n), q = [];
+    const si = Math.round((sx - ox) / cell), sj = Math.round((sz - oz) / cell), ti = Math.round((tx - ox) / cell), tj = Math.round((tz - oz) / cell);
+    if (si < 0 || sj < 0 || si >= n || sj >= n) return false;
+    seen[sj * n + si] = 1; q.push(si, sj);
+    for (let head = 0; head < q.length;) {
+      const i = q[head++], j = q[head++];
+      if (Math.abs(i - ti) <= 2 && Math.abs(j - tj) <= 2) return true;
+      const x = ox + i * cell, z = oz + j * cell, h = T.getHeight(x, z);
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        if (!di && !dj) continue;
+        const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue;
+        const k = jj * n + ii; if (seen[k]) continue; seen[k] = 1;
+        const xx = ox + ii * cell, zz = oz + jj * cell, hh = T.getHeight(xx, zz);
+        if (hh - h > MAX * cell * Math.hypot(di, dj) || C.overlaps(xx, zz, R, hh, 1.8)) continue;
+        q.push(ii, jj);
+      }
+    }
+    return false;
+  };
+  const starts = g.graces.sites.map((s) => ({ x: s.x, z: s.z }));
+  for (const p of g.limveld.pois) starts.push({ x: p.x + Math.sin(p.yaw) * (p.r + 6), z: p.z + Math.cos(p.yaw) * (p.r + 6) });
+  for (const d of g.limveld.dens) starts.push({ x: d.x, z: d.z + 8 });
+  const bad = [];
+  for (const it of g.loot.items) {
+    let s = null, bd = Infinity;
+    for (const c of starts) { const d = Math.hypot(c.x - it.x, c.z - it.z); if (d < bd) { bd = d; s = c; } }
+    if (!reach(s.x, s.z, it.x, it.z)) bad.push(`${it.kind}@${it.x.toFixed(0)},${it.z.toFixed(0)}`);
+  }
+  return { bad, n: g.loot.items.length };
+});
+check('every chest / weapon is reachable on foot', unreachable.bad.length === 0, unreachable.bad.length ? 'unreachable: ' + unreachable.bad.join(' ') : `${unreachable.n} items`);
+
+// steep terrain: the rim face at (-120, ~522) rises faster than 0.9 for 8 m; walking into it must not climb it
+await ev(() => { const g = window.__game.game; g.player.teleport(-120, 515); g.player.yaw = 0; g.cameraCtl.setOrbit(Math.PI, 0.3, 5.6); g.cameraCtl.snap(); });
+await page.keyboard.down('KeyW'); await step(6.0); await page.keyboard.up('KeyW');
+const rim = await ev(() => { const p = window.__game.game.player; return { x: p.pos.x, z: p.pos.z, blocked: !!p.blocked }; });
+check('steep terrain blocks the climb', rim.z > 515.5 && rim.z < 523.5 && Math.abs(rim.x + 120) < 8, `at (${rim.x.toFixed(1)}, ${rim.z.toFixed(1)}) blocked=${rim.blocked}`);
 
 // weapons + inventory: pickups stow or equip, X cycles, the held weapon's skill is what 1 casts
 await ev(() => { const g = window.__game.game; g.player.teleport(10, 40); g.player.yaw = 0; });
