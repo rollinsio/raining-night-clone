@@ -3,6 +3,23 @@
 One line per module: what exists, and any known stubs. Folder ownership per ARCHITECTURE.md; the
 skeleton build touched every folder once — later builders own their folders from here.
 
+## Weapon switching, weapon skills, inventory (2026-08-29)
+
+- `entity/Inventory.js` — NEW: the weapons carried this expedition (max 6) and which is held: `add` (a full inventory trades the held weapon for the pickup, never a stowed one), `equip`, `cycle`, `remove` (never the last).
+- `nightfarers/Rig.js` — the held weapon is no longer baked into the body / costume: `setRigWeapon(rig, visual, colors)` builds one more `SkinnedMesh` on the rig's skeleton (the costume-overlay trick) and swaps it on demand; `createNightfarerRig` attaches the class start weapon and exposes `rig.setWeapon(visual)` / `rig.weaponMesh` / `rig.weaponVisual`. Class signature looks (`signatureVisual`): Raider's great axe, Revenant's bone staff + spirit flame, Recluse's staff + glintstone crystal; bows go in the left fist (the `bow` clip draws with the right), daggers are a pair. The five costumes that used to bake a weapon (Ironeye, Raider, Recluse, Duchess, Revenant) now only carry accessories (quiver, book, lyre, doll).
+- `entity/Humanoid.js` — `weaponParts` exported; `opts.armed` keeps the gripping fist with `weapon: 'none'`.
+- `combat/Weapons.js` — `WEAPON_SKILLS`: one art per weapon type, referenced by `WEAPONS[id].skill` — Lion's Claw (greatsword: long slam), Lunging Strike (sword), Unsheathe (katana: held stance, one flash cut), Spinning Slash (halberd: `spin` turns the body 2π over the active frames so the swept blade hits all round), War Cry (axe: `radial` shockwave + `buff` ×1.25 attack for 14 s), Shadow Step (daggers: `iframes` dash into a slash), Glintstone Arc (staff: `ranged.count` 3 / `spread`), Barrage (bow: 5 arrows). `SKILLS.skill` is now the fallback (Lunging Strike).
+- `entity/Player.js` — `inventory`, `pickupWeapon` (held when it out-damages the weapon in hand or a full inventory replaced it, else stowed), `swapWeapon` (`swapWeapon` action, buffered like the flask, idle / moving only), `equipWeapon` (moveset + skill + rig mesh; cuts an attack in progress, drops the cached trail), `skill` getter; skill defs may carry `spin` / `iframes` / `buff` / `radial` / a projectile fan; `damageMult = baseDamageMult × buff`.
+- `combat/Combat.js` (cross-folder, one line) — `def.radial` routes the hit test to the arc sector instead of the swept blade. The ultimate now sets it, so Ashen Burst is the authored 6.5 m burst with a bladed weapon too (it was going through the blade sweep before).
+- `run/Loot.js` — `makeWeapon(id, rarity)` exported; `pickup` hands the weapon to `player.pickupWeapon` and the title card says STOWED / REPLACES …; the field pool includes the bow.
+- `core/Input.js` — `KeyX` → `swapWeapon`, `KeyI` → `inventory` (gamepad: d-pad right / select); `inventory` passes the menu gate like `pause` / `map`.
+- `ui/Menus.js` — `openInventory` / `toggleInventory` (`I`): one card per carried weapon (art, rarity, attack / reach / poise, the weapon's skill + blurb, Equip / Discard; ↑↓ Enter Delete); Esc closes it (`togglePause` closes the inventory too). Level-up shows `baseDamageMult`.
+- `ui/HUD.js` — `weaponSvg` / `WEAPON_GLYPH` exported for the menu; `showWeapon(w, stowed)` line above the slots (weapon · skill, 2.6 s) and a swap flash on the weapon slot; the skill cooldown ring follows the held weapon's cooldown; hint gains swap / inventory rows; `X` keycap on the weapon slot.
+- `core/Touch.js` — tapping the weapon slot swaps; an `inv` button next to map.
+- `core/Debug.js` — `giveWeapon(id, rarity)`, `equip(i)`, `swapWeapon()`.
+- `tools/smoke.mjs` — new checks: start weapon in hand (mesh bound), upgrade pickup held / weaker stowed, X cycles (paired daggers), skill casts the held weapon's art, Spinning Slash Δyaw = 2π, Barrage fires five, a full inventory trades the held weapon, the inventory menu opens paused with one card per weapon, Enter equips, Esc closes.
+- Known gaps: one shared skill cooldown across weapons (swapping does not reset it); the hub roster panel still lists the start weapon by id; enemies cannot pick weapons up.
+
 ## Tree collision (2026-08-29)
 
 - `world/Colliders.js` — NEW: static solids as vertical cylinders in an 8 m uniform grid over the map (`add`, `forEachNear`, `resolve`, `overlaps`). `resolve(pos, radius)` slides a circle out of every overlapping cylinder (two passes so a body wedged between neighbours settles); big solids spill into every cell they touch.

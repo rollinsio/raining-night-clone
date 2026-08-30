@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PALETTE, vertexMat, writeColor } from '../render/Style.js';
 import { ParticleSystem } from '../render/Particles.js';
-import { WEAPONS, MOVESETS } from '../combat/Weapons.js';
+import { WEAPONS } from '../combat/Weapons.js';
 import { LightPillars, softDisc, glowMaterial } from './Grace.js';
 
 /** Rarity table: glow colour (derived from the palette), damage multiplier, rune payout multiplier. */
@@ -25,7 +25,15 @@ export const RARITIES = {
 const ORDER = ['common', 'uncommon', 'rare', 'legendary'];
 /** Rarity weights per day (index 1..3). */
 export const RARITY_WEIGHTS = { 1: [0.58, 0.3, 0.1, 0.02], 2: [0.3, 0.42, 0.22, 0.06], 3: [0.12, 0.38, 0.34, 0.16] };
-const POOL = ['greatsword', 'sword', 'katana', 'halberd', 'axe', 'daggers', 'staff'];
+const POOL = ['greatsword', 'sword', 'katana', 'halberd', 'axe', 'daggers', 'staff', 'bow'];
+
+/** A weapon instance for the player's inventory: the table entry scaled by rarity. */
+export function makeWeapon(id, rarity = 'common') {
+  if (!WEAPONS[id]) id = 'sword';
+  if (!RARITIES[rarity]) rarity = 'common';
+  const base = WEAPONS[id], R = RARITIES[rarity];
+  return { ...base, id, dmg: Math.round(base.dmg * R.dmg), rarity };
+}
 const MOTES_PER = 14;
 const OPEN_ANGLE = -1.85;
 const PILLAR_W = 0.55, PILLAR_H = 3.2, FLARE_R = 0.8;
@@ -240,21 +248,23 @@ export class LootSystem {
     } else if (this.promptShown) { game.hud.setPrompt(null); this.promptShown = false; }
   }
 
-  /** Open / take: equip a rarity-scaled weapon, pay runes, emit loot:pickup, show a title card. */
+  /**
+   * Open / take: a rarity-scaled weapon goes to the player's inventory (held if it is an upgrade, stowed
+   * otherwise; a full inventory trades the held one away), pay runes, emit loot:pickup, show a title card.
+   */
   pickup(it) {
     const game = this.game, p = game.player, R = RARITIES[it.rarity];
     it.opened = true; it.lidT = 0;
     if (it.kind === 'weapon') { _m.makeScale(0, 0, 0); this.weaponsMesh.setMatrixAt(it.instance, _m); this.weaponsMesh.instanceMatrix.needsUpdate = true; }
     this.extinguish(it);
-    const id = it.weaponId || this.rng.pick(POOL);
-    const base = WEAPONS[id];
-    const weapon = { ...base, id, dmg: Math.round(base.dmg * R.dmg), rarity: it.rarity };
-    p.weapon = weapon; p.moveset = MOVESETS[weapon.moveset] || p.moveset;
+    const weapon = makeWeapon(it.weaponId || this.rng.pick(POOL), it.rarity);
+    const got = p.pickupWeapon(weapon);
     const runes = Math.round((40 + 35 * this.day) * R.runes);
     p.runes = (p.runes || 0) + runes;
     game.events.emit('runes:changed', p.runes);
-    game.events.emit('loot:pickup', { item: it, weapon, runes });
-    game.hud.showTitle(weapon.name, R.label + ' · +' + runes + ' RUNES', 2.6);
+    game.events.emit('loot:pickup', { item: it, weapon, runes, equipped: got.equipped, replaced: got.replaced });
+    const note = got.replaced ? ' · REPLACES ' + got.replaced.name.toUpperCase() : got.equipped ? '' : ' · STOWED';
+    game.hud.showTitle(weapon.name, R.label + ' · +' + runes + ' RUNES' + note, 2.6);
     game.hud.setPrompt(null); this.promptShown = false;
   }
 }

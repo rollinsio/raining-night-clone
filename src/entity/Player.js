@@ -1,14 +1,17 @@
 /**
  * Player controller: camera-relative movement with accel/decel, sprint, dodge roll with i-frames,
- * 3-hit light combo + heavy, skill/ultimate placeholders, stamina/FP, lock-on, hit/stagger/death/respawn.
+ * 3-hit light combo + heavy, the held weapon's skill + the ultimate placeholder, stamina/FP, lock-on,
+ * hit/stagger/death/respawn. Weapons live in an Inventory (entity/Inventory.js): pickupWeapon() stows or
+ * equips, swapWeapon() cycles, equipWeapon() rebinds moveset / skill / the rig's weapon mesh.
  */
 import * as THREE from 'three';
 import { Entity } from './Entity.js';
 import { setHitCtx } from './Humanoid.js';
-import { createNightfarerRig } from '../nightfarers/Rig.js';
-import { WEAPONS, MOVESETS, SKILLS } from '../combat/Weapons.js';
+import { createNightfarerRig, signatureVisual } from '../nightfarers/Rig.js';
+import { Inventory } from './Inventory.js';
+import { WEAPONS, MOVESETS, SKILLS, WEAPON_SKILLS } from '../combat/Weapons.js';
 
-const _move = new THREE.Vector3(), _f = new THREE.Vector3(), _r = new THREE.Vector3(), _chest = new THREE.Vector3(), _n = new THREE.Vector3(), _org = new THREE.Vector3(), _aim = new THREE.Vector3();
+const _move = new THREE.Vector3(), _f = new THREE.Vector3(), _r = new THREE.Vector3(), _chest = new THREE.Vector3(), _n = new THREE.Vector3(), _org = new THREE.Vector3(), _aim = new THREE.Vector3(), _fan = new THREE.Vector3();
 const FLASK_HEAL = 0.4;           // fraction of max HP restored per crimson flask
 const COMBAT_R = 45, COMBAT_LINGER = 4; // an aggro'd enemy this close, or a hit this recent, counts as combat
 const UP = new THREE.Vector3(0, 1, 0);
@@ -24,11 +27,12 @@ export class Player extends Entity {
     this.fp = nf.fp; this.maxFp = nf.fp;
     this.level = 1; this.runes = 0; this.kills = 0; this.deaths = 0;
     this.flasks = 3; this.maxFlasks = 3; // crimson flasks (refilled at a grace; `flask` action drinks one)
-    this.weapon = WEAPONS[nf.weapon] || WEAPONS.sword;
-    this.moveset = MOVESETS[this.weapon.moveset];
+    this.inventory = new Inventory();
+    this.weapon = null; this.moveset = null;
+    this.baseDamageMult = 1; this.buffT = 0; this.buffMul = 1; // damageMult = base × the active skill buff
     const T = game.terrain;
     const ground = (x, z, n) => { T.getNormal(x, z, n); return T.getHeight(x, z); }; // per-foot contact shadows
-    // the class costume (nightfarers/Rig.js): Ironeye's bow sits in the left fist, casters carry the staff
+    // the class costume (nightfarers/Rig.js); the weapon is a separate mesh the rig swaps on equipWeapon()
     this.rig = createNightfarerRig(nf, { ground });
     this.object3d.add(this.rig.root);
     // yaw writes straight through to the transform so a pose that sets it without stepping physics still renders facing that way
@@ -45,6 +49,46 @@ export class Player extends Entity {
     this.respawnPoint = new THREE.Vector3(); this.respawnName = 'Limveld';
     this.attack = { def: null, t: 0, phase: 'none', hitSet: new Set(), lastAngle: 0, heavy: false, reach: 0, fired: false };
     this.outsideRing = false;
+    const startId = WEAPONS[nf.weapon] ? nf.weapon : 'sword';
+    this.inventory.add({ ...WEAPONS[startId], id: startId, rarity: 'common' });
+    this.equipWeapon(this.inventory.equip(0), { quiet: true });
+  }
+
+  /** The held weapon's skill (WEAPON_SKILLS), or the shared fallback. */
+  get skill() { return (this.weapon && WEAPON_SKILLS[this.weapon.skill]) || SKILLS.skill; }
+
+  /**
+   * Hold `w` (an inventory entry): moveset, skill and the rig's weapon mesh follow. Cuts any attack in progress
+   * (the inventory menu can equip mid-swing) and drops the cached blade trail, which was bound to the old blade.
+   */
+  equipWeapon(w, { quiet = false } = {}) {
+    if (!w) return;
+    this.weapon = w;
+    this.moveset = MOVESETS[w.moveset] || MOVESETS.sword;
+    this.rig.setWeapon(signatureVisual(this.nf.id, w.visual));
+    this._trail = null; this.comboIndex = 0;
+    if (this.state === 'attack') { this.attack.phase = 'none'; this.setState('idle'); this.anim.play('idle'); }
+    if (!quiet) { this.game.events.emit('weapon:changed', w); if (this.game.hud) this.game.hud.showWeapon(w); }
+  }
+
+  /**
+   * Loot: stow the weapon, and hold it when it is at least as strong as the one in hand (or when a full
+   * inventory made it replace the held one). Returns { equipped, replaced }.
+   */
+  pickupWeapon(w) {
+    const cur = this.weapon;
+    const r = this.inventory.add(w);
+    const equipped = !!r.replaced || !cur || w.dmg >= cur.dmg;
+    if (equipped) { this.inventory.equip(r.index); this.equipWeapon(w); }
+    else if (this.game.hud) this.game.hud.showWeapon(w, true);
+    return { equipped, replaced: r.replaced };
+  }
+
+  /** Cycle to the next carried weapon (the swap action; idle / moving only). */
+  swapWeapon(dir = 1) {
+    const w = this.inventory.cycle(dir);
+    if (w) this.equipWeapon(w);
+    return w;
   }
 
   /** Recompute stats from level (keeps hp ratio). */
@@ -54,7 +98,8 @@ export class Player extends Entity {
     this.hp = Math.min(this.maxHp, Math.round(this.maxHp * ratio));
     this.maxStamina = this.baseStamina + 3 * l;
     this.maxFp = this.baseFp + 4 * l;
-    this.damageMult = 1 + 0.055 * l;
+    this.baseDamageMult = 1 + 0.055 * l;
+    this.damageMult = this.baseDamageMult * (this.buffT > 0 ? this.buffMul : 1);
   }
 
   /** Chest position (particle target). */
@@ -78,10 +123,12 @@ export class Player extends Entity {
     if (this.skillCd > 0) this.skillCd -= dt;
     if (this.ultCd > 0) this.ultCd -= dt;
     if (this.combatT > 0) this.combatT -= dt;
+    if (this.buffT > 0) this.buffT -= dt;
+    this.damageMult = this.baseDamageMult * (this.buffT > 0 ? this.buffMul : 1);
     if (this.bufferT > 0) { this.bufferT -= dt; if (this.bufferT <= 0) this.bufferAction = null; }
     this.fp = Math.min(this.maxFp, this.fp + 0.7 * dt);
 
-    for (const a of ['light', 'heavy', 'roll', 'skill', 'ult', 'flask']) if (input.wasPressed(a)) this.buffer(a);
+    for (const a of ['light', 'heavy', 'roll', 'skill', 'ult', 'flask', 'swapWeapon']) if (input.wasPressed(a)) this.buffer(a);
     if (input.wasPressed('lockOn')) this.toggleLock();
     if (this.lockTarget && (!this.lockTarget.alive || this.distanceTo(this.lockTarget) > 42)) this.setLock(null);
 
@@ -129,19 +176,21 @@ export class Player extends Entity {
     else { anim.play('idle'); this.state = 'idle'; }
     // actions
     if (this.bufferAction === 'flask') { this.takeBuffer('flask'); this.drinkFlask(); return; }
+    if (this.bufferAction === 'swapWeapon') { this.takeBuffer('swapWeapon'); this.swapWeapon(1); return; }
     if (this.bufferAction === 'roll' && this.stamina > 0) { this.takeBuffer('roll'); this.startRoll(len > 0.001 ? move : this.forward()); return; }
     if (this.bufferAction === 'light' && this.stamina > 0) { this.takeBuffer('light'); this.comboIndex = 0; this.startAttack(this.moveset.light[0], false, move, len); return; }
     if (this.bufferAction === 'heavy' && this.stamina > 0) { this.takeBuffer('heavy'); this.startAttack(this.moveset.heavy, true, move, len); return; }
     if (this.bufferAction === 'skill') {
       this.takeBuffer('skill');
-      if (this.skillCd <= 0 && this.fp >= SKILLS.skill.fp) { this.fp -= SKILLS.skill.fp; this.skillCd = SKILLS.skill.cooldown; this.startAttack(SKILLS.skill.def, true, move, len); }
+      const sk = this.skill;
+      if (this.skillCd <= 0 && this.fp >= sk.fp) { this.fp -= sk.fp; this.skillCd = sk.cooldown; this.startAttack(sk.def, true, move, len); }
       return;
     }
     if (this.bufferAction === 'ult') {
       this.takeBuffer('ult');
       if (this.ultCd <= 0 && this.fp >= SKILLS.ult.fp) {
         this.fp -= SKILLS.ult.fp; this.ultCd = SKILLS.ult.cooldown;
-        this.startAttack({ clip: 'heavy', windup: 0.32, active: 0.14, recover: 0.6, motion: SKILLS.ult.motion, arcFrom: -180, arcTo: 180, stamina: 0, knock: SKILLS.ult.knock, step: 0, poiseMul: 3, reachOverride: SKILLS.ult.radius, burst: true }, true, move, len);
+        this.startAttack({ clip: 'heavy', windup: 0.32, active: 0.14, recover: 0.6, motion: SKILLS.ult.motion, arcFrom: -180, arcTo: 180, stamina: 0, knock: SKILLS.ult.knock, step: 0, poiseMul: 3, reachOverride: SKILLS.ult.radius, burst: true, radial: true }, true, move, len);
       }
     }
   }
@@ -169,7 +218,12 @@ export class Player extends Entity {
     }
     if (t) _aim.set(t.pos.x, t.pos.y + t.height * t.scale * 0.55, t.pos.z).sub(_org).normalize();
     else _aim.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
-    this.game.combat.projectiles.fire(this, def, _org, _aim);
+    const n = def.ranged.count || 1, spread = def.ranged.spread || 0;
+    if (n <= 1) { this.game.combat.projectiles.fire(this, def, _org, _aim); return; }
+    for (let i = 0; i < n; i++) { // a fan around the aim line (skills: Barrage, Glintstone Arc)
+      _fan.copy(_aim).applyAxisAngle(UP, (i - (n - 1) / 2) * spread);
+      this.game.combat.projectiles.fire(this, def, _org, _fan);
+    }
   }
 
   startRoll(dir) {
@@ -198,6 +252,8 @@ export class Player extends Entity {
     a.lastAngle = def.arcFrom * DEG; a.reach = def.reachOverride || this.weapon.reach;
     this.stamina -= (def.stamina || 0) * (this.weapon.staminaMul || 1); this.staminaDelay = 1.2;
     this.sprinting = false;
+    if (def.iframes) this.iframes = Math.max(this.iframes, def.iframes);          // skill: a dash through danger
+    if (def.buff) { this.buffT = def.buff.dur; this.buffMul = def.buff.mul; }      // skill: attack-up for a while
     this.setState('attack');
     if (this.lockTarget) this.yaw = Math.atan2(this.lockTarget.pos.x - this.pos.x, this.lockTarget.pos.z - this.pos.z);
     else if (def.ranged) { this.game.cameraCtl.cameraForward(_f); this.yaw = Math.atan2(_f.x, _f.z); } // unlocked shots go where the camera looks
@@ -218,6 +274,7 @@ export class Player extends Entity {
       if (a.phase !== 'active') this.game.cameraCtl.addLunge(a.heavy ? 0.22 : 0.12); // first active frame
       a.phase = 'active';
       if (def.ranged && !a.fired) { a.fired = true; this.fireRanged(def); }
+      if (def.spin) this.yaw += def.spin * (dt / def.active); // whirl: the blade sweep follows the body round
       // root motion: the step lands as a bell-shaped lunge (same distance, peak velocity into contact) so the
       // body drives the cut instead of gliding through it
       const k = (a.t - tw) / def.active, sp = (def.step / def.active) * (Math.PI / 2) * Math.sin(Math.PI * k);

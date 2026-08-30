@@ -25,7 +25,8 @@ src/world/Props.js         instanced low-poly trees, rocks, grass tufts, pillars
 src/world/Structures.js    buildable kits: church(), fort(), ruin(), catacombEntrance()
 src/entity/Entity.js       base: object3d, hp/maxHp, stamina, poise, radius, alive, update(dt), takeHit(hit)
 src/entity/Humanoid.js     low-poly faceless rig from primitives + procedural animation (idle, run, roll, hit, death); attacks are keyed pose clips (`keyed()`), played exactly after a short crossfade
-src/entity/Player.js       controller: movement rel. to camera, sprint, roll (i-frames), lock-on, light/heavy combos, skill, ultimate, stamina/FP, no fall damage
+src/entity/Inventory.js    carried weapons (INVENTORY_MAX 6) + the held index: add (a full inventory trades the held one), equip, cycle, remove
+src/entity/Player.js       controller: movement rel. to camera, sprint, roll (i-frames), lock-on, light/heavy combos, the held weapon's skill (WEAPON_SKILLS), ultimate, stamina/FP, no fall damage; pickupWeapon / swapWeapon / equipWeapon drive the inventory + the rig's weapon mesh
 src/entity/Camera.js       third-person orbit w/ lock-on framing, collision with terrain, shake, contact lunge
 src/entity/Enemy.js        base AI FSM: idle/patrol/alert/chase/attack/recover/stagger/dead; telegraphs; drops runes
 src/entity/enemies/*.js    Soldier, Wolf, Knight, Archer, Bat, Troll
@@ -33,7 +34,7 @@ src/entity/bosses/Boss.js  boss base: phases, health bar hookup, arena, intro ca
 src/entity/bosses/*.js     day1 field bosses (Tree Sentinel-like, Bell Bearing Hunter-like), day2 (Gaping Jaw-like, Centipede-demon), Nightlord: Gladius/Adel/Heolstor-like w/ phase 2 (+3 for Everdark)
 src/combat/Combat.js       hit volumes (the blade segment swept frame-to-frame for bladed humanoids; arc sector fallback), damage calc, poise/stagger, i-frames, hit-stop, hit FX, rune payout
 src/combat/Projectiles.js  arrows / glintstone bolts for the ranged movesets (bow, staff): swept hits, terrain stop, trail + burst FX
-src/combat/Weapons.js      weapon table (type, dmg, scaling, moveset id, rarity), movesets (timings, hitbox frames, motion values)
+src/combat/Weapons.js      weapon table (type, dmg, scaling, moveset id, rarity, skill id), movesets (timings, hitbox frames, motion values), WEAPON_SKILLS (one art per weapon type)
 src/nightfarers/index.js   8 classes: Wylder, Guardian, Ironeye, Raider, Recluse, Executor, Duchess, Revenant — stats, start weapon, skill(), ultimate(), cooldowns
 src/run/Expedition.js      run state: day (1..3), timer, phase (explore/ring1/ring2/boss), events, end conditions
 src/run/Ring.js            night ring: center/radius schedule per day, shrink easing, outside-damage tick, ring mesh/shader

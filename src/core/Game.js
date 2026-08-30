@@ -176,6 +176,7 @@ export class Game {
     input.update();
     if (input.wasPressed('pause')) this.menus.togglePause();
     if (input.wasPressed('map')) this.map.toggle();
+    if (input.wasPressed('inventory')) this.menus.toggleInventory();
     const sim = this.state === 'EXPEDITION' && !this.paused && !this.posing;
     if (sim) {
       this.time += dt;

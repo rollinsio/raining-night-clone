@@ -17,7 +17,7 @@
  */
 import * as THREE from 'three';
 import { ROMAN } from '../run/Expedition.js';
-import { SKILLS } from '../combat/Weapons.js';
+import { SKILLS, WEAPON_SKILLS } from '../combat/Weapons.js';
 import { UI, FONT, TEXT_SHADOW, BASE_CSS, alpha, mix, shade } from './Theme.js';
 
 const HOLD = 0.6;                   // seconds a damage trail waits after the last hit before draining
@@ -109,6 +109,11 @@ const CSS = `
 .h-slot .k { position: absolute; left: 6px; top: 3px; font-size: 11px; color: ${UI.dim}; }
 .h-slot.tap, .h-art.tap { filter: brightness(1.6); transition: none; }
 .h-slot.c.drink { box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 0 22px ${alpha(UI.gold, 0.55)}; transition: box-shadow 0.15s; }
+.h-slot.l.swap { box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 0 22px ${alpha(RING_BLUE, 0.55)}; transition: box-shadow 0.15s; }
+.h-wname { position: absolute; left: 56px; bottom: 246px; font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; color: ${INK}; white-space: nowrap; opacity: 0; transition: opacity 0.6s; }
+.h-wname.on { opacity: 1; transition: opacity 0.12s; }
+.h-wname .s { color: ${UI.dim}; }
+.h-wname .s b { font-weight: normal; color: ${RING_BLUE}; }
 .h-arts { position: absolute; left: 50%; bottom: 30px; width: 0; height: 0; }
 .h-art { position: absolute; border-radius: 50%; background: radial-gradient(circle at 50% 40%, rgba(30,36,58,0.74), rgba(6,8,14,0.84) 72%); box-shadow: 0 0 0 1px ${alpha(RING_BLUE, 0.62)}, 0 0 0 2px rgba(0,0,0,0.4), 0 0 12px ${alpha(RING_BLUE, 0.32)}, inset 0 0 18px ${alpha(RING_BLUE, 0.2)}; }
 .h-art::before { content: ''; position: absolute; inset: 3px; border-radius: 50%; border: 1px solid ${alpha(RING_BLUE, 0.26)}; box-shadow: inset 0 0 6px ${alpha(RING_BLUE, 0.18)}; }
@@ -173,8 +178,8 @@ WEAPON_ART.shield = `<path d="M0-24L17-18C17 2 9 15 0 22-9 15-17 2-17-18Z" fill=
 WEAPON_ART.flask = `<path d="M-4.5-16H4.5V-9.5C10.5-6.5 13 1 13 9V15C13 18.5 10.5 21 7 21H-7C-10.5 21-13 18.5-13 15V9C-13 1-10.5-6.5-4.5-9.5Z" fill="url(#hudFlask)" stroke="${GOLD_DD}" stroke-width="0.8" stroke-linejoin="round"/><path d="M-6 12.5C-7.5 6-6 0-2.5-4" stroke="${shade(UI.gold, 1.6)}" stroke-width="1.4" stroke-linecap="round" opacity="0.65" fill="none"/><path d="M-5-11.5C-6.5-10-7.5-8-8-6" stroke="${shade(UI.gold, 1.6)}" stroke-width="0.9" stroke-linecap="round" opacity="0.5" fill="none"/><rect x="-6" y="-22" width="12" height="6.5" rx="1.2" fill="${GRIP}" stroke="${GRIP_D}" stroke-width="0.6"/><rect x="-6" y="-17.5" width="12" height="2" fill="${GOLD_D}"/>`;
 // small quick-item: a clay fire pot with a lit fuse (the sub-slot under the item slot)
 WEAPON_ART.pot = `<path d="M-8-6H8L11 3C12 10 7 14 0 14S-12 10-11 3Z" fill="${CLAY}" stroke="${CLAY_D}" stroke-width="0.8" stroke-linejoin="round"/><path d="M-7 2C-8 7-5 10-1 11" stroke="${shade(CLAY, 1.5)}" stroke-width="1.1" stroke-linecap="round" opacity="0.55" fill="none"/><rect x="-6" y="-10" width="12" height="4.5" rx="1" fill="${CLAY_D}" stroke="${shade(CLAY, 0.35)}" stroke-width="0.6"/><path d="M1-10C1-14 4-15 5-18" stroke="${GRIP}" stroke-width="1.3" stroke-linecap="round" fill="none"/><circle cx="5.5" cy="-19" r="1.8" fill="${shade(UI.gold, 1.5)}" style="filter:drop-shadow(0 0 3px ${UI.danger})"/>`;
-/** Lays a vertical weapon drawing diagonally inside the slot. */
-const weaponSvg = (id, rot = 38, k = 1.12) => `<svg viewBox="0 0 64 80" aria-hidden="true"><g transform="translate(32 41) rotate(${rot}) scale(${k})">${WEAPON_ART[id] || WEAPON_ART.sword}</g></svg>`;
+/** Lays a vertical weapon drawing diagonally inside the slot (also the inventory menu's card art). */
+export const weaponSvg = (id, rot = 38, k = 1.12) => `<svg viewBox="0 0 64 80" aria-hidden="true"><g transform="translate(32 41) rotate(${rot}) scale(${k})">${WEAPON_ART[id] || WEAPON_ART.sword}</g></svg>`;
 /** Rune wheel: outer + inner rings, twelve spokes with forked tips, a hub (drawn once at build time). */
 const RUNE_WHEEL = (() => {
   let d = '';
@@ -208,7 +213,7 @@ const GLYPH = {
 <g stroke="${alpha(INK, 0.55)}" stroke-width="1"><path d="M48 2v4M48 90v4M2 48h4M90 48h4"/></g>`,
 };
 const svg = (name, vb = '0 0 48 48') => `<svg viewBox="${vb}" aria-hidden="true">${GLYPH[name]}</svg>`;
-const WEAPON_GLYPH = { greatsword: 'greatsword', sword: 'sword', katana: 'katana', dagger: 'dagger', halberd: 'halberd', axe: 'axe', staff: 'staff', bow: 'bow' };
+export const WEAPON_GLYPH = { greatsword: 'greatsword', sword: 'sword', katana: 'katana', dagger: 'dagger', halberd: 'halberd', axe: 'axe', staff: 'staff', bow: 'bow' };
 
 const _v = new THREE.Vector3();
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -239,8 +244,9 @@ export class HUD {
       <div class="h-runes"><i class="o t"></i><i class="o b"></i><i class="o l"></i>${svg('rune', '0 0 16 16')}<span class="v">0</span></div>
       <div class="h-day"><span class="t1">DAY I</span><span class="t2"></span></div>
       <canvas class="h-compass" width="${COMPASS_W}" height="${COMPASS_H}"></canvas>
+      <div class="h-wname"></div>
       <div class="h-slots">
-        <div class="h-slot l" title="Weapon">${weaponSvg('greatsword')}</div>
+        <div class="h-slot l" title="Weapon">${weaponSvg('greatsword')}<span class="k">X</span></div>
         <div class="h-slot c empty" title="Flask">${weaponSvg('flask', 0, 1.25)}<span class="n"></span><span class="k">C</span></div>
         <div class="h-slot s" title="Quick item">${weaponSvg('pot', 0, 1.75)}</div>
         <div class="h-slot r empty" title="Off-hand">${weaponSvg('shield', 0)}</div>
@@ -255,7 +261,7 @@ export class HUD {
       <div class="h-prompt"><span class="u-key">E</span><span class="t"></span></div>
       <div class="h-warn">OUTSIDE THE NIGHT'S CIRCLE</div>
       <div class="h-title"><div class="b"></div><div class="u-orn"></div><div class="s"></div></div>
-      <div class="h-hint">move<b>W A S D</b><br>sprint<b>Shift</b><br>dodge roll<b>Space</b><br>light / heavy<b>LMB / RMB</b><br>lock-on<b>Q / MMB</b><br>interact<b>E</b><br>flask<b>C</b><br>skill / ultimate<b>1 / 2</b><br>map<b>M</b><br>pause<b>Esc</b></div>`;
+      <div class="h-hint">move<b>W A S D</b><br>sprint<b>Shift</b><br>dodge roll<b>Space</b><br>light / heavy<b>LMB / RMB</b><br>lock-on<b>Q / MMB</b><br>interact<b>E</b><br>flask<b>C</b><br>skill / ultimate<b>1 / 2</b><br>swap weapon<b>X</b><br>inventory<b>I</b><br>map<b>M</b><br>pause<b>Esc</b></div>`;
     const q = (s) => root.querySelector(s);
     this.el = {
       hp: q('.h-hp .f'), hpTr: q('.h-hp .tr'), fp: q('.h-fp .f'), fpTr: q('.h-fp .tr'), st: q('.h-st .f'), stTr: q('.h-st .tr'), hpBar: q('.h-hp'), stBar: q('.h-st'), fpBar: q('.h-fp'),
@@ -265,8 +271,9 @@ export class HUD {
       weaponSlot: q('.h-slot.l'), itemSlot: q('.h-slot.c'), itemN: q('.h-slot.c .n'), potSlot: q('.h-slot.s'), offSlot: q('.h-slot.r'), artSkill: q('.h-art.s'), artUlt: q('.h-art.u'), cdSkill: q('.h-art.s .cd'), cdUlt: q('.h-art.u .cd'),
       reticle: q('.h-reticle'), prompt: q('.h-prompt'), promptT: q('.h-prompt .t'), promptK: q('.h-prompt .u-key'),
       warn: q('.h-warn'), title: q('.h-title'), titleB: q('.h-title .b'), titleS: q('.h-title .s'),
-      reveal: q('.h-reveal'), revealB: q('.h-reveal .b'), revealS: q('.h-reveal .s'), hint: q('.h-hint'),
+      reveal: q('.h-reveal'), revealB: q('.h-reveal .b'), revealS: q('.h-reveal .s'), hint: q('.h-hint'), wname: q('.h-wname'),
     };
+    this.wnameT = 0;
     this.cctx = this.el.compass.getContext('2d');
     this.last = {}; this.titleT = 0; this.hintT = 0; this.canvasT = 0; this.titleMode = 'card';
     this.trail = { hp: -1, fp: -1, st: -1, boss: -1 }; this.hold = { hp: 0, fp: 0, st: 0, boss: 0 }; this.prev = { hp: 1, fp: 1, st: 1, boss: 1 }; this.trailW = { hp: -1, fp: -1, st: -1, boss: -1 };
@@ -312,6 +319,14 @@ export class HUD {
   }
 
   hideHint() { this.hintT = 0; this.el.hint.style.display = 'none'; this.root.classList.remove('h-keys'); }
+
+  /** Weapon line above the slots: the weapon just equipped (or `stowed`: picked up but not held) and its skill. */
+  showWeapon(w, stowed = false) {
+    const E = this.el, sk = (w && WEAPON_SKILLS[w.skill]) || SKILLS.skill;
+    E.wname.innerHTML = `${stowed ? '<span class="s">Stowed · </span>' : ''}${clean(w.name)} <span class="s">· <b>${clean(sk.name)}</b></span>`;
+    E.wname.classList.add('on'); this.wnameT = stowed ? 2.0 : 2.6;
+    if (!stowed) { E.weaponSlot.classList.add('swap'); setTimeout(() => E.weaponSlot.classList.remove('swap'), 350); }
+  }
 
   setPrompt(text, key = 'E') {
     if (text === this.last.prompt && key === this.last.promptKey) return;
@@ -399,8 +414,10 @@ export class HUD {
       E.weaponSlot.innerHTML = weaponSvg(WEAPON_GLYPH[v] || 'sword');
       E.weaponSlot.title = clean(p.weapon && p.weapon.name) || 'Weapon';
     });
-    const cdS = (SKILLS && SKILLS.skill && SKILLS.skill.cooldown) || 9, cdU = (SKILLS && SKILLS.ult && SKILLS.ult.cooldown) || 45;
+    const sk = p.skill || SKILLS.skill, cdS = (sk && sk.cooldown) || 9, cdU = (SKILLS && SKILLS.ult && SKILLS.ult.cooldown) || 45;
+    this._set('skillName', sk && sk.name, (v) => { E.artSkill.title = clean(v) || 'Skill'; });
     this._cooldown('cdS', p.skillCd, cdS, E.cdSkill);
+    if (this.wnameT > 0) { this.wnameT -= dt; if (this.wnameT <= 0) E.wname.classList.remove('on'); }
     this._cooldown('cdU', p.ultCd, cdU, E.cdUlt);
     this._set('ultReady', p.ultCd <= 0, (v) => { E.ultMini.classList.toggle('on', v); });
     // boss bar

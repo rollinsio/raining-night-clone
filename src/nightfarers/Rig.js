@@ -12,7 +12,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PALETTE, NIGHTFARER_COLORS } from '../render/Style.js';
-import { createHumanoid, RigBuilder, HUMANOID_CLIPS } from '../entity/Humanoid.js';
+import { createHumanoid, RigBuilder, HUMANOID_CLIPS, weaponParts } from '../entity/Humanoid.js';
+import { WEAPONS } from '../combat/Weapons.js';
 
 const TAU = Math.PI * 2;
 const _c = new THREE.Color(), _c2 = new THREE.Color();
@@ -264,7 +265,7 @@ function dagger() {
 const COSTUMES = {
   /** Wylder: the hooded hero as-is, plus the grappling-claw gauntlet on the left forearm. */
   Wylder: {
-    base: { hood: true, helm: false, cloak: true, weapon: 'greatsword', scarf: PALETTE.sparkBlood },
+    base: { hood: true, helm: false, cloak: true, scarf: PALETTE.sparkBlood },
     scale: [1, 1, 1],
     dress(ov) {
       const el = ov.pos('elbowL'), wr = ov.pos('wristL'), SD = PALETTE.steelDark;
@@ -274,7 +275,7 @@ const COSTUMES = {
   },
   /** Guardian: avian great helm with a feather crest, layered pauldrons, breastplate, tassets, greaves, tall shield. */
   Guardian: {
-    base: { hood: false, helm: false, cloak: true, weapon: 'halberd' },
+    base: { hood: false, helm: false, cloak: true },
     scale: [1.12, 1.08, 1.12],
     dress(ov, col) {
       const hc = ov.pos('head').clone().add(new THREE.Vector3(0, 0.12, 0)), ny = ov.pos('neck').y, hy = ov.pos('hips').y;
@@ -326,7 +327,7 @@ const COSTUMES = {
   },
   /** Ironeye: slim hooded scout, iron half-mask, quiver and harness, tall recurve bow in the left hand. */
   Ironeye: {
-    base: { hood: true, helm: false, cloak: true, weapon: 'none' },
+    base: { hood: true, helm: false, cloak: true },
     scale: [0.94, 1.0, 0.94],
     dress(ov, col) {
       const hc = ov.pos('head').clone().add(new THREE.Vector3(0, 0.12, 0)), hy = ov.pos('hips').y, ny = ov.pos('neck').y;
@@ -349,15 +350,12 @@ const COSTUMES = {
       ov.F(at(box(0.11, 0.1, 0.07), 0.17, hy - 0.08, 0.08), 'hips', LEA, 1.05);
       const el = ov.pos('elbowL'), wr = ov.pos('wristL');
       ov.F(loft([ringY(8, wr.y + 0.17, 0.054, 0.05, el.x, 0, 0.7), ringY(8, wr.y + 0.02, 0.042, 0.04, el.x, 0, 0.7)], { capStart: true, capEnd: true }), 'elbowL', LEA, 1.25, { blend: { bone: 'wristL', y: wr.y + 0.02, width: 0.04 } });
-      // the bow, gripped in the left fist
-      const hl = wr.clone().add(new THREE.Vector3(0, -0.05, 0.012));
-      for (const p of handFrame(bow(), hl, 0)) ov.F(p.geo, 'wristL', p.color, p.shade);
-      void ny;
+      void ny; // (the bow is the swappable weapon mesh: setRigWeapon)
     },
   },
   /** Raider: hulking, bare-armed, pelt over one shoulder, iron-banded belt, fur boots, a great axe carried head-down. */
   Raider: {
-    base: { hood: false, helm: false, cloak: false, weapon: 'none' },
+    base: { hood: false, helm: false, cloak: false },
     scale: [1.17, 1.12, 1.17],
     dress(ov, col) {
       const hy = ov.pos('hips').y, ny = ov.pos('neck').y, hc = ov.pos('head').clone().add(new THREE.Vector3(0, 0.12, 0));
@@ -393,14 +391,12 @@ const COSTUMES = {
       // fur boot cuffs, long braid down the back
       for (const side of ['L', 'R']) { const kn = ov.pos('knee' + side); ov.F(at(cyl(0.078, 0.09, 0.12, 8), kn.x, kn.y - 0.2, 0), 'knee' + side, FUR, 1.0); }
       for (let i = 0; i < 7; i++) ov.S(at(sph(0.032 - i * 0.002, 7, 5), 0, hc.y + 0.06 - i * 0.06, -0.14 - i * 0.03), 'head', col.secondary, 0.9);
-      // the great axe in the right fist
-      const hr = ov.pos('wristR').clone().add(new THREE.Vector3(0, -0.05, 0.012));
-      for (const p of handFrame(greatAxe(), hr)) ov.F(p.geo, 'wristR', p.color, p.shade);
+      // (the great axe is the swappable weapon mesh: setRigWeapon)
     },
   },
   /** Recluse: wide drooping witch hat with a crooked crown, long pale hair, floor-length robe, bell sleeves, glintstone. */
   Recluse: {
-    base: { hood: false, helm: false, cloak: true, weapon: 'staff' },
+    base: { hood: false, helm: false, cloak: true },
     scale: [1.0, 1.0, 1.0],
     dress(ov, col) {
       const hc = ov.pos('head').clone().add(new THREE.Vector3(0, 0.12, 0)), hy = ov.pos('hips').y, ny = ov.pos('neck').y, an = ov.pos('ankleL').y;
@@ -428,11 +424,7 @@ const COSTUMES = {
         const el = ov.pos('elbow' + side), wr = ov.pos('wrist' + side);
         ov.F(loft([ringY(9, el.y - 0.08, 0.058, 0.056, el.x), ringY(9, wr.y + 0.08, 0.09, 0.085, el.x), ringY(9, wr.y - 0.04, 0.12, 0.115, el.x)], {}), 'elbow' + side, ROBE, 1.0, { blend: { bone: 'wrist' + side, y: wr.y, width: 0.1 }, shadeFn: (x, y) => lerp(1.0, 0.82, sm((y - wr.y + 0.04) / 0.2)) });
       }
-      // glintstone crystal at the staff head (the base orb sits at +0.42 along the tilted staff), a book in the left hand
-      const hr = ov.pos('wristR').clone().add(new THREE.Vector3(0, -0.05, 0.012));
-      const crystal = scaled(new THREE.OctahedronGeometry(0.075, 0), 0.8, 1.25, 0.8);
-      crystal.rotateX(-0.35); crystal.translate(hr.x, hr.y + 0.42 * Math.cos(0.35), hr.z - 0.42 * Math.sin(0.35));
-      ov.G(crystal, 'wristR', col.accent, 1.0);
+      // a book in the left hand (the glintstone staff + crystal is the swappable weapon mesh: setRigWeapon)
       const hl = ov.pos('wristL').clone().add(new THREE.Vector3(0, -0.05, 0.012));
       ov.F(at(box(0.15, 0.2, 0.036), hl.x, hl.y - 0.03, hl.z + 0.045), 'wristL', mixc(PALETTE.leather, PALETTE.sparkBlood, 0.35), 1.05);
       ov.F(at(box(0.135, 0.185, 0.024), hl.x, hl.y - 0.03, hl.z + 0.052), 'wristL', mixc(PALETTE.moon, PALETTE.skin, 0.35), 1.1);
@@ -440,7 +432,7 @@ const COSTUMES = {
   },
   /** Executor: conical straw hat pulled low, bandaged arms and face, sheathed katana at the hip, grey ponytail. */
   Executor: {
-    base: { hood: false, helm: false, cloak: true, weapon: 'katana' },
+    base: { hood: false, helm: false, cloak: true },
     scale: [1.0, 1.0, 1.0],
     dress(ov, col) {
       const hc = ov.pos('head').clone().add(new THREE.Vector3(0, 0.12, 0)), hy = ov.pos('hips').y, ny = ov.pos('neck').y;
@@ -470,7 +462,7 @@ const COSTUMES = {
   },
   /** Duchess: slim, hair in a high bun, pleated ruff, fitted bodice with a pale front, split skirt and bustle, twin daggers. */
   Duchess: {
-    base: { hood: false, helm: false, cloak: false, weapon: 'dagger' },
+    base: { hood: false, helm: false, cloak: false },
     scale: [0.95, 1.0, 0.95],
     dress(ov, col) {
       const hc = ov.pos('head').clone().add(new THREE.Vector3(0, 0.12, 0)), hy = ov.pos('hips').y, ny = ov.pos('neck').y, kn = ov.pos('kneeL').y;
@@ -494,14 +486,12 @@ const COSTUMES = {
       for (const s of [-1, 1]) ov.F(at(rx(box(0.06, 0.75, 0.012), 0.12), s * 0.2, hy - 0.4, 0.21), 'hips', WINE, 1.0, { skirt: { L: 'hipL', R: 'hipR', top: hy - 0.05, bottom: kn - 0.1, max: 0.5 } });
       ov.F(at(scaled(sph(0.15, 9, 6), 1.25, 0.6, 0.85), 0, hy - 0.06, -0.2), 'hips', DRESS, 0.95);
       ov.F(at(cyl(0.19, 0.2, 0.06, 10), 0, hy + 0.02, 0), 'hips', WINE, 1.05);
-      // the second dagger in the left fist
-      const hl = ov.pos('wristL').clone().add(new THREE.Vector3(0, -0.05, 0.012));
-      for (const p of handFrame(dagger(), hl)) ov.F(p.geo, 'wristL', p.color, p.shade);
+      // (both daggers are the swappable weapon mesh: setRigWeapon)
     },
   },
   /** Revenant: veiled in pale cloth, floor-length gown, bone staff, lyre, and a doll companion at her hip. */
   Revenant: {
-    base: { hood: false, helm: false, cloak: false, weapon: 'none' },
+    base: { hood: false, helm: false, cloak: false },
     scale: [0.98, 1.0, 0.98],
     dress(ov, col) {
       const hc = ov.pos('head').clone().add(new THREE.Vector3(0, 0.12, 0)), hy = ov.pos('hips').y, ny = ov.pos('neck').y, kn = ov.pos('kneeL').y, an = ov.pos('ankleL').y;
@@ -520,11 +510,7 @@ const COSTUMES = {
         ov.F(loft([ringY(9, el.y - 0.06, 0.056, 0.054, el.x), ringY(9, wr.y + 0.1, 0.08, 0.076, el.x), ringY(9, wr.y - 0.1, 0.11, 0.105, el.x, -0.02)], {}), 'elbow' + side, GOWN, 0.95, { blend: { bone: 'wrist' + side, y: wr.y, width: 0.1 } });
       }
       ov.G(at(new THREE.OctahedronGeometry(0.028, 0), 0, hy + 0.42, 0.155), 'chest', col.accent, 1.0);
-      // bone staff in the right hand, lyre in the left
-      const hr = ov.pos('wristR').clone().add(new THREE.Vector3(0, -0.05, 0.012));
-      for (const p of handFrame(spiritStaff(), hr)) ov.F(p.geo, 'wristR', p.color, p.shade);
-      const flame = scaled(new THREE.OctahedronGeometry(0.04, 1), 0.9, 1.5, 0.9); flame.rotateX(-0.35); flame.translate(hr.x, hr.y + 0.58 * Math.cos(0.35), hr.z - 0.58 * Math.sin(0.35));
-      ov.G(flame, 'wristR', col.accent, 1.0);
+      // lyre in the left hand (the bone staff is the swappable weapon mesh: setRigWeapon)
       const hl = ov.pos('wristL').clone().add(new THREE.Vector3(0, -0.05, 0.012));
       for (const p of handFrame(lyre(), hl, 0)) ov.F(p.geo, 'wristL', p.color, p.shade);
       // the doll: porcelain head, bonnet, dark dress, stub arms — hovering at her left hip
@@ -689,15 +675,62 @@ void E_ROLL; void E_YAW;
 
 // -------------------------------------------------------------------------------------------------
 
+// -------------------------------------------------------------------------------------------------
+// Swappable weapon mesh: one more SkinnedMesh on the rig's skeleton (same trick as the costume overlay), rebuilt
+// whenever the held weapon changes, so the rig itself never has a weapon baked in.
+
+/** Class signature looks for a base weapon visual (display only: combat spans / HUD glyphs use the base visual). */
+const SIGNATURE = { Raider: { axe: 'greatAxe' }, Revenant: { staff: 'spiritStaff' }, Recluse: { staff: 'glintstaff' } };
+export function signatureVisual(nfId, visual) { const s = SIGNATURE[nfId]; return (s && s[visual]) || visual; }
+
+/**
+ * Give the rig a weapon mesh for `visual` (a WEAPONS visual or a signature look), replacing any it holds.
+ * Bows go in the left fist (the draw hand is the right), daggers are a pair, staves carry a glowing head.
+ */
+export function setRigWeapon(rig, visual, col) {
+  if (rig.weaponMesh) {
+    rig.mesh.remove(rig.weaponMesh);
+    rig.weaponMesh.geometry.dispose();
+    const mats = rig.weaponMesh.material; if (Array.isArray(mats) && mats[2]) mats[2].dispose(); // the per-mesh glow
+    rig.weaponMesh = null;
+  }
+  rig.weaponVisual = visual || 'none';
+  if (!visual || visual === 'none') return null;
+  const ov = new Overlay(rig), rb = ov.rb;
+  const accent = (col && col.accent) || PALETTE.gold;
+  const hr = ov.pos('wristR').clone().add(new THREE.Vector3(0, -0.05, 0.012));
+  const hl = ov.pos('wristL').clone().add(new THREE.Vector3(0, -0.05, 0.012));
+  // base visuals shade exactly as createHumanoid bakes them (steel lifted, the rest plain)
+  const base = (v) => { for (const w of weaponParts(v)) rb.part(at(w.geo, hr.x, hr.y, hr.z), 'wristR', w.color, 0, w.color === PALETTE.steel ? 1.45 : 1.0); };
+  const head = (geo, along) => { geo.rotateX(-0.35); geo.translate(hr.x, hr.y + along * Math.cos(0.35), hr.z - along * Math.sin(0.35)); return geo; };
+  switch (visual) {
+    case 'greatAxe': for (const p of handFrame(greatAxe(), hr)) ov.F(p.geo, 'wristR', p.color, p.shade); break;
+    case 'spiritStaff':
+      for (const p of handFrame(spiritStaff(), hr)) ov.F(p.geo, 'wristR', p.color, p.shade);
+      ov.G(head(scaled(new THREE.OctahedronGeometry(0.04, 1), 0.9, 1.5, 0.9), 0.58), 'wristR', accent, 1.0); // caged spirit flame
+      break;
+    case 'glintstaff':
+      base('staff');
+      ov.G(head(scaled(new THREE.OctahedronGeometry(0.075, 0), 0.8, 1.25, 0.8), 0.42), 'wristR', accent, 1.0); // crystal over the orb
+      break;
+    case 'bow': for (const p of handFrame(bow(), hl, 0)) ov.F(p.geo, 'wristL', p.color, p.shade); break;
+    case 'dagger': base('dagger'); for (const p of handFrame(dagger(), hl)) ov.F(p.geo, 'wristL', p.color, p.shade); break;
+    default: base(visual); break;
+  }
+  rig.weaponMesh = ov.build();
+  return rig.weaponMesh;
+}
+
 /**
  * Build a dressed Nightfarer. Returns the base humanoid interface ({ root, mesh, bones, animator, materials, cloak,
  * contacts, handRLocal, update, setGroundNormal }) plus `overlay` (the costume SkinnedMesh), `glow` (its emissive
- * material) and `nf`. opts.ground(x, z, n) feeds the foot contact shadows as for createHumanoid.
+ * material), `nf`, `weaponMesh` / `weaponVisual` and `setWeapon(visual)` (swaps the held weapon mesh; the class's
+ * starting weapon is attached here). opts.ground(x, z, n) feeds the foot contact shadows as for createHumanoid.
  */
 export function createNightfarerRig(nf, opts = {}) {
   const id = nf && nf.id, C = COSTUMES[id] || COSTUMES.Wylder;
   const colors = NIGHTFARER_COLORS[id] || NIGHTFARER_COLORS.Wylder;
-  const rig = createHumanoid({ colors, weapon: C.base.weapon, hood: C.base.hood, helm: C.base.helm, cloak: C.base.cloak, scarf: C.base.scarf || (C.base.cloak ? colors.accent : null), ground: opts.ground || null });
+  const rig = createHumanoid({ colors, weapon: 'none', armed: true, hood: C.base.hood, helm: C.base.helm, cloak: C.base.cloak, scarf: C.base.scarf || (C.base.cloak ? colors.accent : null), ground: opts.ground || null });
   const ov = new Overlay(rig);
   C.dress(ov, colors, rig);
   rig.overlay = ov.build();
@@ -706,6 +739,10 @@ export function createNightfarerRig(nf, opts = {}) {
   rig.animator.clips = { ...HUMANOID_CLIPS, ...NF_CLIPS };
   rig.nf = nf;
   rig.presentClip = 'present_' + String(id || 'wylder').toLowerCase();
+  rig.weaponMesh = null; rig.weaponVisual = 'none';
+  rig.setWeapon = (visual) => setRigWeapon(rig, visual, colors);
+  const start = WEAPONS[nf && nf.weapon];
+  rig.setWeapon(signatureVisual(id, start ? start.visual : 'sword'));
   return rig;
 }
 

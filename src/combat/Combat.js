@@ -145,7 +145,7 @@ export class Combat {
     const a = att.attack, def = a.def, rig = att.rig, w = att.weapon;
     const hand = rig && rig.bones && (rig.bones.wristR || rig.bones.elbowR); // enemy rigs have no wrist bone
     const span = hand && rig.handRLocal && w && TRAIL_SPAN[w.visual] ? TRAIL_SPAN[w.visual] : null;
-    if (!span) { this.sweepArc(att); return; }
+    if (!span || def.radial) { this.sweepArc(att); return; } // def.radial: a shockwave around the body, not the blade
     const grip = att._grip || (att._grip = { base: new THREE.Vector3(), tip: new THREE.Vector3(), pBase: new THREE.Vector3(), pTip: new THREE.Vector3(), def: null, lastT: 0 });
     bladePoints(w.visual, rig.handRLocal, grip); // bind-pose model space
     grip.base.copy(rig.handRLocal).lerp(grip.base, 0.15); // from just past the grip to the tip

@@ -1,6 +1,7 @@
 /**
  * window.__game debug API (mandatory for critics / the screenshot tool):
- * teleport, setTime, spawn, killAll, setFps, screenshotPose(name), fps, ready, setQuality, startExpedition, resume.
+ * teleport, setTime, spawn, killAll, setFps, screenshotPose(name), fps, ready, setQuality, startExpedition, resume,
+ * giveWeapon(id, rarity) / equip(i) / swapWeapon() (inventory).
  * Poses are deterministic compositions; the sim is frozen afterwards (call resume() to continue).
  */
 import * as THREE from 'three';
@@ -9,6 +10,7 @@ import { HERO_SPEED } from '../entity/Humanoid.js';
 import { composeBossPose } from '../entity/bosses/Pose.js';
 import { composeRingPose } from '../run/Pose.js';
 import { composeChurchPose, composeFortPose, composeRuinPose } from '../world/Pose.js';
+import { makeWeapon } from '../run/Loot.js';
 
 const _v = new THREE.Vector3();
 
@@ -145,6 +147,10 @@ export function installDebug(game) {
     setTime(day, t01 = 0) { ensureRun(); game.run.setTime(day, t01); game.atmosphere.setTime(day, t01); },
     spawn(type = 'soldier') { ensureRun(); return game.run.spawnDebug(type); },
     killAll() { for (const e of game.entities) if (e !== game.player && e.alive) e.die(null); },
+    /** Put a weapon in the player's inventory as a pickup would (held if it is an upgrade). Returns the weapon. */
+    giveWeapon(id = 'sword', rarity = 'common') { ensureRun(); const w = makeWeapon(id, rarity); game.player.pickupWeapon(w); return w; },
+    equip(i) { ensureRun(); const p = game.player, w = p.inventory.equip(i); if (w) p.equipWeapon(w); return w; },
+    swapWeapon() { ensureRun(); return game.player.swapWeapon(1); },
     setFps(n) { game.fpsCap = n > 0 ? n : 0; },
     setQuality(q) { game.setQuality(q); },
     startExpedition(nf = 'Wylder') { game.startExpedition(nf); },
