@@ -957,7 +957,7 @@ class ContactShadows {
 // Weapon visuals (hand-local frame: origin at the centre of the fist, blade along -Y tilted slightly forward;
 // the pommel pokes out just above the fist, the guard sits just below it)
 
-function weaponParts(visual) {
+export function weaponParts(visual) {
   const parts = [];
   const add = (geo, color, y, x = 0, z = 0) => { geo.translate(x, y, z); parts.push({ geo, color }); };
   const S = PALETTE.steel, SD = PALETTE.steelDark, L = PALETTE.leather, G = PALETTE.gold;
@@ -1035,7 +1035,7 @@ function fistGeo(s, tilt) {
 
 /**
  * Build a humanoid. Returns { root, mesh, bones, animator, materials, cloak, contacts, handRLocal, update(dt), setGroundNormal(n) }.
- * opts: { colors:{primary,secondary,accent,head}, weapon: visual, shield, hood, helm, cloak, scarf: hex,
+ * opts: { colors:{primary,secondary,accent,head}, weapon: visual ('none' + armed:true for a swappable weapon mesh), shield, hood, helm, cloak, scarf: hex,
  *         ground(x, z, outNormal) -> ground height (world) for the foot contact shadows }
  * Costume: tunic (primary) with a jagged hem over trousers (secondary warmed toward leather), ochre leather mantle
  * (accent), hooded cloak (primary cooled/darkened), leather belt / pouches / lofted bracers, cuffed boots that taper
@@ -1150,7 +1150,7 @@ export function createHumanoid(opts = {}) {
     ], { capStart: true, capEnd: true }), 'elbow' + side, LEA, 1.25, { blend: { bone: 'wrist' + side, y: wr.y + 0.01, width: 0.04 }, shadeFn: (x, y) => lerp(0.8, 1.05, sm((y - wr.y) / 0.15)) });
     F(loft([ringY(10, el.y - 0.1, 0.058, 0.056, el.x, 0, 0.7), ringY(10, el.y - 0.118, 0.058, 0.056, el.x, 0, 0.7)], { capStart: true, capEnd: true }), 'elbow' + side, CUFF, 0.85);
     F(loft([ringY(10, wr.y + 0.036, 0.04, 0.038, el.x, 0, 0.7), ringY(10, wr.y + 0.05, 0.041, 0.039, el.x, 0, 0.7)], { capStart: true, capEnd: true }), 'elbow' + side, CUFF, 0.85);
-    const armed = side === 'R' && (opts.weapon || 'sword') !== 'none';
+    const armed = side === 'R' && (opts.armed || (opts.weapon || 'sword') !== 'none'); // opts.armed: the fist grips even with no baked weapon (swappable weapon meshes)
     S(at(fistGeo(s, armed ? -0.35 : -0.15), wr.x, wr.y - 0.04, 0.012), 'wrist' + side, SKIN, 0.62, { shadeFn: (x, y) => lerp(0.72, 1.0, sm((y - wr.y + 0.12) / 0.1)) });
   }
   // --- legs: long thigh tapering from a full hip to a slim knee, calf swelling then narrowing hard into the ankle

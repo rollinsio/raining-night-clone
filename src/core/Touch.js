@@ -29,12 +29,12 @@ const LAYOUT = {
   landscape: {
     pad: 0.44,
     atk: [104, 92, 64], hvy: [26, 152, 50], roll: [26, 28, 56], skl: [190, 136, 46], ult: [176, 40, 46],
-    spr: [288, 30, 42], use: [140, 232, 46], pause: [12, 8, 34, 'top'], map: [56, 8, 34, 'top'],
+    spr: [288, 30, 42], use: [140, 232, 46], pause: [12, 8, 34, 'top'], map: [56, 8, 34, 'top'], inv: [100, 8, 34, 'top'],
   },
   portrait: {
     pad: 0.5,
     atk: [84, 96, 60], hvy: [16, 160, 48], roll: [16, 28, 54], skl: [92, 20, 44], ult: [150, 120, 44],
-    spr: [110, 190, 40], use: [24, 236, 44], pause: [8, 62, 32, 'top'], map: [48, 62, 32, 'top'],
+    spr: [110, 190, 40], use: [24, 236, 44], pause: [8, 62, 32, 'top'], map: [48, 62, 32, 'top'], inv: [88, 62, 32, 'top'],
   },
 };
 
@@ -80,7 +80,7 @@ export class Touch {
     this.layout();
     window.addEventListener('resize', () => this.layout());
     // touch-flavoured controls hint; the interact prompt drops its keyboard keycap (a button appears instead)
-    hud.el.hint.innerHTML = 'move<b>left pad</b><br>camera<b>right pad</b><br>lock-on<b>tap right pad · 2× tap enemy</b><br>sprint<b>spr (latches)</b><br>flask<b>tap flask</b><br>dodge roll<b>roll</b><br>light / heavy<b>atk / hvy</b><br>skill / ultimate<b>skl / ult</b>';
+    hud.el.hint.innerHTML = 'move<b>left pad</b><br>camera<b>right pad</b><br>lock-on<b>tap right pad · 2× tap enemy</b><br>sprint<b>spr (latches)</b><br>flask<b>tap flask</b><br>dodge roll<b>roll</b><br>light / heavy<b>atk / hvy</b><br>skill / ultimate<b>skl / ult</b><br>swap weapon<b>tap weapon</b><br>inventory<b>inv</b>';
     // the desktop hint spot (bottom-right) collides with the day/timer line and buttons on phones
     const hs = hud.el.hint.style;
     hs.top = '126px'; hs.bottom = 'auto'; hs.right = '300px'; hs.fontSize = '12px';
@@ -181,6 +181,7 @@ export class Touch {
     this.useBtn.classList.add('t-use');
     this.btn('pause', '▮▮', 'pause');
     this.btn('map', 'map', 'map');
+    this.btn('inv', 'inv', 'inventory');
   }
 
   /** A round action button (placed by layout()); `action` null = caller wires its own pointerdown. */
@@ -207,11 +208,11 @@ export class Touch {
   /**
    * If the pointer landed on a HUD slot or art (which the pads cover), fire its action and flash it.
    * Returns true when the tap was consumed, so the pad must not start a stick/look drag. Slots with no
-   * action yet (weapon, quick item, off-hand) still swallow the tap rather than spawning the stick.
+   * action yet (quick item, off-hand) still swallow the tap rather than spawning the stick.
    */
   hudTap(e) {
     const E = this.game.hud.el;
-    const targets = [[E.itemSlot, 'flask'], [E.artSkill, 'skill'], [E.artUlt, 'ult'], [E.weaponSlot, null], [E.potSlot, null], [E.offSlot, null]];
+    const targets = [[E.itemSlot, 'flask'], [E.artSkill, 'skill'], [E.artUlt, 'ult'], [E.weaponSlot, 'swapWeapon'], [E.potSlot, null], [E.offSlot, null]];
     // rect containment, not elementsFromPoint: #hud is pointer-events:none, so hit-testing skips it
     const x = e.clientX, y = e.clientY;
     for (const [el, action] of targets) {

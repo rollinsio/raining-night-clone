@@ -4,6 +4,11 @@
  */
 import { requestLock } from '../core/Input.js';
 import { UI, FONT, TEXT_SHADOW, BASE_CSS, alpha } from './Theme.js';
+import { weaponSvg, WEAPON_GLYPH } from './HUD.js';
+import { RARITIES } from '../run/Loot.js';
+import { SKILLS, WEAPON_SKILLS } from '../combat/Weapons.js';
+
+const hex = (n) => '#' + (n >>> 0).toString(16).padStart(6, '0');
 
 const CSS = BASE_CSS + `
 #menu { font-family: ${FONT}; color: ${UI.text}; text-shadow: ${TEXT_SHADOW}; }
@@ -29,6 +34,32 @@ const CSS = BASE_CSS + `
 .m-small { font-size: 12px; letter-spacing: 0.18em; color: ${UI.dim}; text-align: center; margin-top: 16px; text-transform: uppercase; }
 .m-quality { display: flex; gap: 6px; justify-content: center; margin: 8px 0; }
 .m-quality .m-btn { width: auto; font-size: 13px; padding: 6px 14px; }
+/* inventory: one card per carried weapon (art, name, rarity, stats, the weapon's skill, equip / discard) */
+.m-inv { min-width: 640px; max-width: 760px; }
+.m-invgrid { display: flex; flex-direction: column; gap: 6px; max-height: 62vh; overflow-y: auto; padding-right: 4px; }
+.m-card { display: grid; grid-template-columns: 64px 1fr auto; gap: 14px; align-items: center; padding: 8px 12px; border: 1px solid transparent; background: rgba(255,255,255,0.02); cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+.m-card:hover, .m-card.sel { background: ${alpha(UI.gold, 0.07)}; border-color: ${alpha(UI.gold, 0.4)}; }
+.m-card.eq { border-left: 3px solid ${UI.gold}; }
+.m-card .art { width: 64px; height: 80px; position: relative; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.8)); }
+.m-card .art svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.m-card .nm { font-size: 17px; letter-spacing: 0.16em; text-transform: uppercase; color: #f0e8d0; }
+.m-card .nm .held { font-size: 11px; color: ${UI.gold}; letter-spacing: 0.3em; margin-left: 6px; }
+.m-card .rar { font-size: 11px; letter-spacing: 0.32em; margin: 2px 0 4px; }
+.m-card .st { font-size: 13px; letter-spacing: 0.1em; color: ${UI.dim}; }
+.m-card .st b { color: ${UI.text}; font-weight: normal; }
+.m-card .sk { font-size: 13px; line-height: 1.5; color: ${UI.dim}; margin-top: 4px; letter-spacing: 0.03em; }
+.m-card .sk b { color: ${UI.text}; font-weight: normal; letter-spacing: 0.12em; text-transform: uppercase; }
+.m-card .sk .fp { color: ${alpha(UI.fp, 0.9)}; white-space: nowrap; }
+.m-card .acts .m-btn { font-size: 12px; padding: 6px 12px; margin: 3px 0; min-width: 96px; }
+@media (max-width: 730px), (max-height: 500px) {
+  .m-inv { min-width: 0; }
+  .m-card { grid-template-columns: 44px 1fr; gap: 8px; padding: 6px 8px; }
+  .m-card .art { width: 44px; height: 56px; }
+  .m-card .acts { grid-column: 1 / 3; display: flex; gap: 6px; }
+  .m-card .acts .m-btn { min-width: 0; flex: 1; }
+  .m-card .nm { font-size: 14px; }
+  .m-card .sk { font-size: 12px; }
+}
 /* phone-sized screens (portrait especially): single column, panel fits the viewport and scrolls */
 @media (max-width: 730px), (max-height: 500px) {
   .m-panel { min-width: 0; max-width: 92vw; max-height: 88vh; overflow-y: auto; box-sizing: border-box; padding: 20px 22px; }
@@ -92,10 +123,63 @@ export class Menus {
     if (this.game.state === 'EXPEDITION' && this.game.input.wantLock && !this.game.input.noLock) requestLock(this.game.canvas);
   }
 
+  /** Esc: closes the pause or inventory menu if one is open, else pauses. */
   togglePause() {
     if (this.game.state !== 'EXPEDITION') return;
-    if (this.open === 'pause') this.resume();
+    if (this.open === 'pause' || this.open === 'inventory') this.resume();
     else if (!this.open) this.openPause();
+  }
+
+  toggleInventory() {
+    if (this.game.state !== 'EXPEDITION' || !this.game.player) return;
+    if (this.open === 'inventory') this.resume();
+    else if (!this.open) this.openInventory();
+  }
+
+  /** Carried weapons: equip one (Enter / click), discard one (Delete), each card shows the weapon's skill. */
+  openInventory() {
+    const p = this.game.player, inv = p.inventory;
+    const s = this._show('inventory', `
+      <div class="m-panel m-inv"><div class="m-h1">INVENTORY</div><div class="m-h2" id="m-invsub"></div>
+      <div class="m-invgrid" id="m-invgrid"></div>
+      <div class="m-line"></div>
+      <div class="m-small">↑ ↓ select · Enter equip · Delete discard · I / Esc close</div></div>`);
+    let sel = Math.max(0, inv.equipped);
+    const grid = s.querySelector('#m-invgrid');
+    const render = () => {
+      sel = Math.max(0, Math.min(sel, inv.count - 1));
+      s.querySelector('#m-invsub').textContent = `Day ${this.game.run ? this.game.run.day : 1} · ${inv.count} / ${inv.max} weapons · Flasks ${p.flasks} / ${p.maxFlasks}`;
+      grid.innerHTML = inv.weapons.map((w, i) => {
+        const R = RARITIES[w.rarity] || RARITIES.common, sk = WEAPON_SKILLS[w.skill] || SKILLS.skill, eq = i === inv.equipped;
+        return `<div class="m-card${i === sel ? ' sel' : ''}${eq ? ' eq' : ''}" data-i="${i}">
+          <div class="art">${weaponSvg(WEAPON_GLYPH[w.visual] || 'sword')}</div>
+          <div><div class="nm">${w.name}${eq ? '<span class="held">HELD</span>' : ''}</div>
+          <div class="rar" style="color:${hex(R.color)}">${R.label}</div>
+          <div class="st">Attack <b>${w.dmg}</b> · Reach <b>${w.reach.toFixed(1)} m</b> · Poise <b>${w.poiseDmg}</b></div>
+          <div class="sk"><b>${sk.name}</b> — ${sk.desc} <span class="fp">${sk.fp} FP · ${sk.cooldown} s</span></div></div>
+          <div class="acts"><button class="m-btn" data-eq="${i}" ${eq ? 'disabled' : ''}>Equip</button><button class="m-btn" data-drop="${i}" ${inv.count < 2 ? 'disabled' : ''}>Discard</button></div>
+        </div>`;
+      }).join('');
+      grid.querySelectorAll('.m-card').forEach((c) => c.addEventListener('mouseenter', () => { sel = +c.dataset.i; grid.querySelectorAll('.m-card').forEach((d) => d.classList.toggle('sel', d === c)); }));
+      grid.querySelectorAll('[data-eq]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); equip(+b.dataset.eq); }));
+      grid.querySelectorAll('[data-drop]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); drop(+b.dataset.drop); }));
+      grid.querySelectorAll('.m-card').forEach((c) => c.addEventListener('click', () => equip(+c.dataset.i)));
+    };
+    const equip = (i) => { const w = inv.equip(i); if (w && w !== p.weapon) p.equipWeapon(w); sel = i; render(); };
+    const drop = (i) => {
+      if (!inv.remove(i)) return;
+      if (p.weapon !== inv.current) p.equipWeapon(inv.current);
+      render();
+    };
+    render();
+    this._keys = (e) => {
+      if (this.open !== 'inventory') return;
+      if (e.code === 'ArrowDown' || e.code === 'KeyS') { sel = (sel + 1) % inv.count; render(); }
+      else if (e.code === 'ArrowUp' || e.code === 'KeyW') { sel = (sel + inv.count - 1) % inv.count; render(); }
+      else if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); equip(sel); }
+      else if (e.code === 'Delete' || e.code === 'Backspace') drop(sel);
+    };
+    window.addEventListener('keydown', this._keys);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -172,7 +256,7 @@ export class Menus {
         <div class="m-line"></div>
         <div class="m-row">Vigour (HP) <b>${p.maxHp} → ${Math.round(p.baseHp * (1 + 0.065 * p.level))}</b></div>
         <div class="m-row">Endurance <b>${p.maxStamina} → ${p.baseStamina + 3 * p.level}</b></div>
-        <div class="m-row">Attack power <b>×${p.damageMult.toFixed(2)} → ×${(1 + 0.055 * p.level).toFixed(2)}</b></div>
+        <div class="m-row">Attack power <b>×${p.baseDamageMult.toFixed(2)} → ×${(1 + 0.055 * p.level).toFixed(2)}</b></div>
         <div class="m-line"></div>
         <button class="m-btn" id="m-lvl" ${can ? '' : 'disabled'}>Level Up</button>
         <button class="m-btn" id="m-leave">Leave</button>`;

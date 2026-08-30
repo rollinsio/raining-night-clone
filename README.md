@@ -11,7 +11,7 @@ npm install
 npx vite --port 5173      # http://localhost:5173 — click the canvas for pointer lock
 ```
 
-Controls: **WASD** move · **Shift** sprint · **Space** roll (i-frames) · **LMB** light · **RMB** heavy · **Q** lock-on (touch: tap the right pad, or double-tap an enemy) · **E** interact/rest · **C** flask · **1/2** skill/ultimate · **M** map · **Esc** pause. Ironeye's bow and the casters' staffs fire projectiles: light = quick shot, heavy = charged shot / comet (costs FP); sprinting is free outside combat.
+Controls: **WASD** move · **Shift** sprint · **Space** roll (i-frames) · **LMB** light · **RMB** heavy · **Q** lock-on (touch: tap the right pad, or double-tap an enemy) · **E** interact/rest · **C** flask · **1** weapon skill · **2** ultimate · **X** swap weapon · **I** inventory · **M** map · **Esc** pause. Ironeye's bow and the casters' staffs fire projectiles: light = quick shot, heavy = charged shot / comet (costs FP); sprinting is free outside combat. Weapons found in chests and dens go into a six-slot inventory (held at once when they out-damage what you carry, stowed otherwise); every weapon type carries its own skill — Lion's Claw, Lunging Strike, Unsheathe, Spinning Slash, War Cry, Shadow Step, Glintstone Arc, Barrage.
 
 ## Android
 

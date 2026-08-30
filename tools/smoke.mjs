@@ -134,6 +134,54 @@ await page.keyboard.down('KeyW'); await step(6.0); await page.keyboard.up('KeyW'
 const rim = await ev(() => { const p = window.__game.game.player; return { x: p.pos.x, z: p.pos.z, blocked: !!p.blocked }; });
 check('steep terrain blocks the climb', rim.z > 515.5 && rim.z < 523.5 && Math.abs(rim.x + 120) < 8, `at (${rim.x.toFixed(1)}, ${rim.z.toFixed(1)}) blocked=${rim.blocked}`);
 
+// weapons + inventory: pickups stow or equip, X cycles, the held weapon's skill is what 1 casts
+await ev(() => { const g = window.__game.game; g.player.teleport(10, 40); g.player.yaw = 0; });
+const inv0 = await ev(() => { const p = window.__game.game.player; return { n: p.inventory.count, id: p.weapon.id, vis: p.rig.weaponVisual, mesh: !!p.rig.weaponMesh }; });
+check('starts with the class weapon in hand', inv0.n === 1 && inv0.id === 'greatsword' && inv0.vis === 'greatsword' && inv0.mesh, JSON.stringify(inv0));
+await ev(() => window.__game.giveWeapon('katana', 'rare'));
+const inv1 = await ev(() => { const p = window.__game.game.player; return { n: p.inventory.count, id: p.weapon.id, vis: p.rig.weaponVisual, skill: p.skill.name }; });
+check('upgrade pickup is held (rare katana > common greatsword)', inv1.n === 2 && inv1.id === 'katana' && inv1.vis === 'katana' && inv1.skill === 'Unsheathe', JSON.stringify(inv1));
+await ev(() => window.__game.giveWeapon('daggers', 'common'));
+const inv2 = await ev(() => { const p = window.__game.game.player; return { n: p.inventory.count, id: p.weapon.id }; });
+check('weaker pickup is stowed', inv2.n === 3 && inv2.id === 'katana', JSON.stringify(inv2));
+await page.keyboard.press('KeyX'); await step(0.1);
+const inv3 = await ev(() => { const p = window.__game.game.player; return { id: p.weapon.id, vis: p.rig.weaponVisual, combo: p.moveset.light.length }; });
+check('X swaps to the next carried weapon (daggers, dual mesh)', inv3.id === 'daggers' && inv3.vis === 'dagger', JSON.stringify(inv3));
+await ev(() => window.__game.equip(0));
+const fp0 = await ev(() => window.__game.game.player.fp);
+await page.keyboard.press('Digit1'); await step(0.1);
+const sk1 = await ev(() => { const p = window.__game.game.player; return { st: p.state, step: p.attack.def && p.attack.def.step, fp: p.fp }; });
+check("skill casts the held weapon's art (greatsword: Lion's Claw)", sk1.st === 'attack' && sk1.step === 3.4 && sk1.fp < fp0, JSON.stringify(sk1));
+await step(1.5);
+await ev(() => { const p = window.__game.game.player; window.__game.giveWeapon('halberd', 'legendary'); p.skillCd = 0; p.fp = p.maxFp; });
+const yaw0 = await ev(() => window.__game.game.player.yaw);
+await page.keyboard.press('Digit1'); await step(1.6);
+const yaw1 = await ev(() => window.__game.game.player.yaw);
+check('halberd Spinning Slash turns the body a full circle', Math.abs((yaw1 - yaw0) - Math.PI * 2) < 0.25, `Δyaw ${(yaw1 - yaw0).toFixed(2)} rad`);
+await ev(() => {
+  const p = window.__game.game.player, pr = window.__game.game.combat.projectiles;
+  window.__game.giveWeapon('bow', 'common'); window.__game.equip(p.inventory.count - 1); p.skillCd = 0; p.fp = p.maxFp;
+  window.__fired = 0; const fire = pr.fire.bind(pr); pr.fire = (...a) => { window.__fired++; return fire(...a); };
+});
+await page.keyboard.press('Digit1'); await step(0.5);
+const arrows = await ev(() => window.__fired);
+check('bow Barrage looses a fan of five arrows (bow in the left fist)', arrows === 5 && await ev(() => window.__game.game.player.rig.weaponVisual === 'bow'), `${arrows} arrows`);
+await step(2.0);
+await ev(() => window.__game.giveWeapon('sword', 'common')); // 6 of 6 — an upgrade over the bow, so it is held
+await ev(() => window.__game.giveWeapon('axe', 'legendary'));
+const inv4 = await ev(() => { const p = window.__game.game.player; return { n: p.inventory.count, id: p.weapon.id, ids: p.inventory.weapons.map((w) => w.id).join(',') }; });
+check('a full inventory trades the held weapon for the pickup', inv4.n === 6 && inv4.id === 'axe' && !inv4.ids.split(',').includes('sword'), JSON.stringify(inv4));
+await page.keyboard.press('KeyI'); await step(0.1);
+const menu1 = await ev(() => ({ open: window.__game.game.menus.open, paused: window.__game.game.paused, cards: document.querySelectorAll('.m-card').length }));
+check('I opens the inventory menu (paused, one card per weapon)', menu1.open === 'inventory' && menu1.paused && menu1.cards === 6, JSON.stringify(menu1));
+await page.keyboard.press('ArrowUp'); await page.keyboard.press('Enter'); await step(0.1);
+const menu2 = await ev(() => ({ id: window.__game.game.player.weapon.id, held: document.querySelectorAll('.m-card.eq').length }));
+check('Enter equips the selected card', menu2.id !== 'axe' && menu2.held === 1, JSON.stringify(menu2));
+await page.keyboard.press('Escape'); await step(0.1);
+check('Esc closes the inventory', await ev(() => window.__game.game.menus.open === null && !window.__game.game.paused));
+await ev(() => window.__game.equip(0));
+await step(0.5);
+
 // spawn a soldier in front and attack it with F (light)
 await ev(() => { const g = window.__game.game; g.player.teleport(10, 60); g.player.yaw = 0; g.cameraCtl.setOrbit(Math.PI, 0.3, 5.6); g.cameraCtl.snap(); });
 const soldierHp0 = await ev(() => { const e = window.__game.spawn('soldier'); e.teleport(10, 62.2); window.__soldier = e; return e.hp; });
