@@ -15,6 +15,7 @@ import { Postfx } from '../render/Postfx.js';
 import { Terrain } from '../world/Terrain.js';
 import { Limveld } from '../world/Limveld.js';
 import { Props } from '../world/Props.js';
+import { Colliders } from '../world/Colliders.js';
 import { Player } from '../entity/Player.js';
 import { CameraController } from '../entity/Camera.js';
 import { Combat } from '../combat/Combat.js';
@@ -57,6 +58,7 @@ export class Game {
     this.terrain = new Terrain(this, { seed: this.seed }); this.terrain.generate();
     this.limveld = new Limveld(this, this.terrain, this.rng.fork(1)); this.limveld.plan();
     this.terrain.build(); this.limveld.build();
+    this.colliders = new Colliders(this.terrain);
     this.props = new Props(this, this.terrain, this.limveld, this.rng.fork(2)); this.props.build();
     this.atmosphere = new Atmosphere(this);
     this.postfx = new Postfx(this.renderer, this.scene, this.camera);

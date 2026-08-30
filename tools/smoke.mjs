@@ -65,6 +65,13 @@ await page.keyboard.press('Space'); await step(0.1);
 check('roll state + i-frames', await ev(() => window.__game.game.player.state === 'roll' && window.__game.game.player.iframes > 0));
 await step(0.8);
 
+// tree collision: walk straight at a landmark dead tree (valley floor, (128,186) s=1.6) and get stopped by the trunk
+await ev(() => { const g = window.__game.game; g.player.teleport(128, 180); g.player.yaw = 0; g.cameraCtl.setOrbit(Math.PI, 0.3, 5.6); g.cameraCtl.snap(); });
+await page.keyboard.down('KeyW'); await step(2.0); await page.keyboard.up('KeyW');
+const treeD = await ev(() => { const p = window.__game.game.player; return Math.hypot(p.pos.x - 128, p.pos.z - 186); });
+check('tree trunks block the player', treeD >= 0.5 * 1.6 + 0.4 && treeD < 3, `stopped ${treeD.toFixed(2)} m from the trunk`);
+check('collider grid has trunks', await ev(() => window.__game.game.colliders.count > 500), await ev(() => window.__game.game.colliders.count + ' solids'));
+
 // spawn a soldier in front and attack it with F (light)
 await ev(() => { const g = window.__game.game; g.player.teleport(10, 60); g.player.yaw = 0; g.cameraCtl.setOrbit(Math.PI, 0.3, 5.6); g.cameraCtl.snap(); });
 const soldierHp0 = await ev(() => { const e = window.__game.spawn('soldier'); e.teleport(10, 62.2); window.__soldier = e; return e.hp; });

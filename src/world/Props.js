@@ -425,6 +425,9 @@ export class Props {
     }
     this._instance(treeGeos[0], trees[0], mat);
     this._instance(treeGeos[1], trees[1], mat);
+    // trunks are solid: base radius 0.42*s plus a little slack for the lean
+    const solids = this.game.colliders;
+    if (solids) for (const list of trees) for (const p of list) solids.add(p.x, p.z, 0.5 * p.s, 'tree');
 
     // hero trees: explicit landmarks + a sparse scatter preferring hilltops and ridges
     const heroGeos = [heroTree(rng, 0), heroTree(rng, 1)];
@@ -445,6 +448,8 @@ export class Props {
     }
     this._instance(heroGeos[0], heroes[0], mat, { bucket: false });
     this._instance(heroGeos[1], heroes[1], mat, { bucket: false });
+    // hero trunks: 1.15*s base with the root flare reaching ~1.3*s
+    if (solids) for (const list of heroes) for (const p of list) solids.add(p.x, p.z, 1.3 * p.s, 'heroTree');
 
     // rocks: more on slopes, shores, meadows and along the worn tracks
     const rockGeo = rock(rng), rocks = [];
