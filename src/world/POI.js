@@ -26,7 +26,7 @@ export function buttress(k, x, y, z, dx, dz, o = {}) {
 
 /** Flight of solid stone steps rising toward -z; the bottom step's front edge sits at z, width w. */
 export function stairs(k, x, y, z, w, n, rise, run, color = PALETTE.stoneDark, o = {}) {
-  for (let i = 0; i < n; i++) k.box(w, (i + 1) * rise, run, x, y, z - (i + 0.5) * run, color, { tint: 1, seg: 4 });
+  for (let i = 0; i < n; i++) k.box(w, (i + 1) * rise, run, x, y, z - (i + 0.5) * run, color, { tint: 1, seg: 4, solid: false }); // steps: walkable
   if (o.cheeks) {
     const L = n * run, h = n * rise + 0.5, cw = 0.7;
     k.box(cw, h, L, x - w / 2 - cw / 2, y, z - L / 2, color, { tint: 0.95 });
