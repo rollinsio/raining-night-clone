@@ -90,7 +90,7 @@ export class LootSystem {
     for (const p of limveld.pois) {
       switch (p.type) {
         case 'church': chest(local(p, 2.8, 11.6), p.yaw + Math.PI + 0.3); break;
-        case 'fort': chest(local(p, -5.5, 16.5), p.yaw + 0.4); chest(local(p, 0, -4), p.yaw + Math.PI, 'legendary'); break;
+        case 'fort': chest(local(p, -5.5, 16.5), p.yaw + 0.4); chest(local(p, 0, -0.9), p.yaw + Math.PI, 'legendary'); break; // (collision builder) in the keep's door recess, now that the keep is solid
         case 'ruin': chest(local(p, 0, -3.6), p.yaw + 0.2); break;
         case 'catacomb': chest(local(p, 3.0, 4.8), p.yaw + Math.PI - 0.5); break;
         case 'camp': chest(local(p, -2.2, -2.4), p.yaw + 2.2); break;

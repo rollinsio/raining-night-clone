@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PALETTE, vertexMat, emissive, grassMat } from '../render/Style.js';
 import { vnoise } from './Terrain.js';
+import { footprint } from './Colliders.js';
 
 const REGIONS = 4;
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -464,6 +465,16 @@ export class Props {
       rocks.push({ x, y: h - s * 0.25, z, ry: rng.float() * 6.28, tx: rng.range(-0.2, 0.2), tz: rng.range(-0.2, 0.2), s, sy: s * rng.range(0.6, 1.1), cr: tint, cg: tint, cb: tint });
     }
     this._instance(rockGeo, rocks, mat);
+    // solids: every big rock form registers the convex hull of its mesh footprint (scaled / rotated per instance),
+    // so collision follows the generated silhouette instead of a hand-tuned radius. Small rocks are stepped over.
+    const hullOf = (geo, y0, y1) => (solids ? footprint(geo, y0, y1) : null);
+    const addHull = (hull, p, kind) => {
+      if (!hull) return;
+      const c = Math.cos(p.ry || 0), s = Math.sin(p.ry || 0), k = p.s ?? 1;
+      solids.addPoly(hull.map(([lx, lz]) => [p.x + (lx * c + lz * s) * k, p.z + (-lx * s + lz * c) * k]), kind);
+    };
+    const rockHull = hullOf(rockGeo);
+    for (const p of rocks) if (p.s >= 1.3) addHull(rockHull, p, 'rock');
 
     // boulders: explicit landmarks + scatter favouring slopes, crests, track sides and meadow edges
     const boulderGeos = [boulder(rng, 0), boulder(rng, 1)], boulders = [[], []];
@@ -484,6 +495,7 @@ export class Props {
     }
     this._instance(boulderGeos[0], boulders[0], mat);
     this._instance(boulderGeos[1], boulders[1], mat);
+    for (let v = 0; v < 2; v++) { const hull = hullOf(boulderGeos[v]); for (const p of boulders[v]) addHull(hull, p, 'boulder'); }
 
     // crags: explicit silhouette landmarks + scatter on steep, high ground and ridge crests
     const cragGeos = [crag(rng, 0), crag(rng, 1)], crags = [[], []];
@@ -503,6 +515,8 @@ export class Props {
     }
     this._instance(cragGeos[0], crags[0], mat, { bucket: false });
     this._instance(cragGeos[1], crags[1], mat, { bucket: false });
+    // crag / cliff footprints: the rock mass between knee and chest height (base slabs + fallen blocks, not the crowns)
+    for (let v = 0; v < 2; v++) { const hull = hullOf(cragGeos[v], 0.6, 3.0); for (const p of crags[v]) addHull(hull, p, 'crag'); }
 
     // cliffs: explicit landmark rows (vista crest bands, foreground outcrops) + a sparse scatter on the steepest
     // high ground so every big slope carries some sheer rock
@@ -523,6 +537,7 @@ export class Props {
     }
     this._instance(cliffGeos[0], cliffs[0], mat, { bucket: false });
     this._instance(cliffGeos[1], cliffs[1], mat, { bucket: false });
+    for (let v = 0; v < 2; v++) { const hull = hullOf(cliffGeos[v], 0.6, 3.0); for (const p of cliffs[v]) addHull(hull, p, 'cliff'); }
 
     // grass: clumps (5-12 tufts sharing a tint and silhouette) — uniform meadow noise everywhere, a dense pass
     // in Limveld's meadow zones; thinned on bare ground (dirt patches, scuffs, the worn track) so dark earth
@@ -599,6 +614,7 @@ export class Props {
     this._instance(grassGeos[1], grass[1], gMat, { castShadow: false });
     this._instance(grassGeos[2], grass[2], gMat, { castShadow: false });
     this._instance(rockGeo, meadowRocks, mat);
+    for (const p of meadowRocks) if (p.s >= 1.3) addHull(rockHull, p, 'rock');
 
     // standing stones: explicit landmarks + scatter on ridges
     const monoGeo = monolith(rng), monos = [];
@@ -616,6 +632,7 @@ export class Props {
       monos.push({ x, y: h - 0.3, z, ry: rng.float() * 6.28, tx: rng.range(-0.12, 0.12), tz: rng.range(-0.12, 0.12), s: rng.range(0.7, 1.5), sy: rng.range(0.8, 1.4), cr: tint, cg: tint, cb: tint });
     }
     this._instance(monoGeo, monos, mat, { bucket: false });
+    { const hull = hullOf(monoGeo, -1, 2.5); for (const p of monos) addHull(hull, p, 'monolith'); }
 
     // ruin fragments: small clusters on high, flat ground
     const colTall = brokenColumn(rng, true), colShort = brokenColumn(rng, false), archGeo = archFragment(), wallGeo = wallStub(rng);
@@ -645,11 +662,22 @@ export class Props {
     this._instance(colShort, cols[1], mat, { bucket: false });
     this._instance(archGeo, arches, mat, { bucket: false });
     this._instance(wallGeo, walls, mat, { bucket: false });
+    if (solids) {
+      const hc = [hullOf(colTall), hullOf(colShort)], hw = hullOf(wallGeo);
+      for (let v = 0; v < 2; v++) for (const p of cols[v]) addHull(hc[v], p, 'column');
+      for (const p of walls) addHull(hw, p, 'wall');
+      // arches: the two piers only (a hull of the whole fragment would wall off the opening)
+      for (const p of arches) {
+        const c = Math.cos(p.ry || 0), s = Math.sin(p.ry || 0), k = p.s ?? 1;
+        for (const lx of [-1.6, 1.6]) solids.addBox(p.x + lx * k * c, p.z - lx * k * s, 0.45 * k, 0.5 * k, p.ry || 0, 'arch');
+      }
+    }
 
     // braziers (+ emissive flames) where Limveld asked for them
     if (L.braziers.length) {
       const bz = L.braziers.map((b) => ({ x: b.x, y: T.getHeight(b.x, b.z), z: b.z, ry: rng.float() * 6.28, s: 1, cr: 1, cg: 1, cb: 1 }));
       this._instance(brazier(), bz, mat, { bucket: false });
+      if (solids) for (const p of bz) solids.add(p.x, p.z, 0.55, 'brazier');
       this._instance(flame(), bz, emissive(PALETTE.torch, 2.2, { vertexColors: true }), { bucket: false, castShadow: false, receiveShadow: false });
     }
 
@@ -674,6 +702,7 @@ export class Props {
     }
     this._instance(graveGeos[0], graves[0], mat);
     this._instance(graveGeos[1], graves[1], mat);
+    for (let v = 0; v < 2; v++) { const hull = hullOf(graveGeos[v]); for (const p of graves[v]) addHull(hull, p, 'grave'); }
     this.game.scene.add(this.group);
     this.counts = { trees: n, heroes: heroes[0].length + heroes[1].length, rocks: rocks.length + meadowRocks.length, boulders: boulders[0].length + boulders[1].length, crags: crags[0].length + crags[1].length, cliffs: cliffs[0].length + cliffs[1].length, grass: grassCount(), monoliths: monos.length, ruinBits: cols[0].length + cols[1].length + arches.length + walls.length, graves: graves[0].length + graves[1].length, meshes: this.meshes.length };
   }
