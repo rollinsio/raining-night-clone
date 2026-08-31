@@ -3,6 +3,40 @@
 One line per module: what exists, and any known stubs. Folder ownership per ARCHITECTURE.md; the
 skeleton build touched every folder once — later builders own their folders from here.
 
+## Jump + walkable built floors (2026-08-31)
+
+Characters can jump, and built floors are real: church plinths, paved forecourts and stair flights hold entities
+up instead of letting them sink to the heightfield.
+
+- `world/Colliders.js` — solids flagged `walk` are walkable platforms: they block like any solid through the height
+  band (a 0.9 m plinth edge is a wall to feet on the turf), and their flat top is standable ground. `addWalkBox`,
+  `groundAt(x, z, yFoot, step, margin)` = highest platform top within a knee-step above the feet.
+- `world/Structures.js` — `Kit.add` records every `solid:false`, yaw-only piece (plinth floors, stair steps,
+  thresholds) as a kit-space walkable platform in `kit.walks` (tilted causeway slabs stay terrain-walked, they
+  track the turf anyway); `groundLocal(lx, lz)` samples the terrain under a frame-local point.
+- `world/Limveld.js` — registers kit walks into the collider grid, rotated with the kit. Churches also get a small
+  forecourt apron stamp at the plinth's height: the hillside chapel's turf fell away faster (0.55 m/m) than a stair
+  flight descends (0.36 m/m), so its forecourt could never be walked onto.
+- `world/POI.js` — `stairs` now descends past its authored base toward +z, one buried step per rise, until the
+  flight meets the real ground, so no flight is gated by a first step taller than the knee on sagging turf
+  (before the floors were solid this was invisible — you waded through the plinth instead).
+- `entity/Entity.js` — grounds to max(heightfield, platform top). The platform snap only applies while not rising,
+  so a jump can pass a floor lip and land on it; `teleport` lands on top of built floors; the contact blob lies
+  flat on a floor instead of following the buried slope.
+- `entity/Player.js` — jump (`V`, gamepad B, touch `jmp`; buffered like the roll, from idle/move while grounded):
+  8.2 m/s impulse (~1.4 m apex — clears a plinth), the run speed carried into the air, reduced-authority air
+  steering, lands into idle/run. Costs 8 stamina.
+- `entity/Humanoid.js` — `jump` clip: legs gather into the apex and reach for the landing, arms out for balance
+  (`ctx.param` driven from vertical velocity); the cloak lifts while airborne.
+- `core/Input.js` — `KeyV` -> `jump`, gamepad button 1 (B). `core/Touch.js` — `jmp` button by the roll cluster.
+  `ui/HUD.js` — hint row.
+- `tools/smoke.mjs` — the reachability flood fill grounds each cell on platforms (knee-step on / off a platform,
+  climb limit on plain terrain, `seen` marked only on acceptance so a stair cell rejected from low ground can
+  still be entered from the flight). New checks: jump leaves the ground and lands; the nave floor holds the player
+  up; walking the nave stays on the floor; the plinth edge blocks from below; a jump clears the edge onto the floor.
+- Known gaps: no jump attacks / plunging attacks; enemies never jump (stairs and floors work for them on foot);
+  projectiles ignore floor slabs; the camera does not collide with floors (it can look up through a plinth).
+
 ## Weapon switching, weapon skills, inventory (2026-08-29)
 
 - `entity/Inventory.js` — NEW: the weapons carried this expedition (max 6) and which is held: `add` (a full inventory trades the held weapon for the pickup, never a stowed one), `equip`, `cycle`, `remove` (never the last).

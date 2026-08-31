@@ -65,6 +65,51 @@ await page.keyboard.press('Space'); await step(0.1);
 check('roll state + i-frames', await ev(() => window.__game.game.player.state === 'roll' && window.__game.game.player.iframes > 0));
 await step(0.8);
 
+// jump: V leaves the ground and lands again
+await ev(() => { const g = window.__game.game; g.player.teleport(10, 40); g.player.yaw = 0; });
+await page.keyboard.press('KeyV'); await step(0.3);
+const jump1 = await ev(() => { const g = window.__game.game, p = g.player; return { st: p.state, h: p.pos.y - g.terrain.getHeight(p.pos.x, p.pos.z) }; });
+check('jump leaves the ground', jump1.st === 'jump' && jump1.h > 0.5, `h ${jump1.h.toFixed(2)} m at 0.3 s`);
+await step(1.2);
+const jump2 = await ev(() => { const g = window.__game.game, p = g.player; return { st: p.state, on: p.onGround, h: p.pos.y - g.terrain.getHeight(p.pos.x, p.pos.z) }; });
+check('jump lands again', jump2.st !== 'jump' && jump2.on && Math.abs(jump2.h) < 0.06, JSON.stringify(jump2));
+
+// church floors are walkable platforms: a teleport lands ON the plinth and walking around the nave stays on it
+const nave = await ev(() => {
+  const g = window.__game.game, P = g.limveld.pois.find((q) => q.type === 'church' && !q.ruined);
+  const sn = Math.sin(P.yaw), cs = Math.cos(P.yaw);
+  const x = P.x + -8 * sn, z = P.z + -8 * cs; // kit (0, -8): the nave centre
+  g.player.teleport(x, z);
+  g.cameraCtl.setOrbit(Math.PI, 0.3, 5.6); g.cameraCtl.snap();
+  window.__nave = { x, z };
+  return { walkCount: g.colliders.kinds.walk || 0, h: g.player.pos.y - g.terrain.getHeight(x, z) };
+});
+check('church nave floor holds the player up', nave.h > 0.4 && nave.h < 1.6, `${nave.h.toFixed(2)} m above the heightfield, ${nave.walkCount} platforms`);
+await page.keyboard.down('KeyW'); await step(1.0); await page.keyboard.up('KeyW');
+const nave2 = await ev(() => { const g = window.__game.game, p = g.player; return { h: p.pos.y - g.terrain.getHeight(p.pos.x, p.pos.z), moved: Math.hypot(p.pos.x - window.__nave.x, p.pos.z - window.__nave.z) }; });
+check('walking the nave stays on the floor', nave2.h > 0.3, `${nave2.h.toFixed(2)} m up after ${nave2.moved.toFixed(1)} m`);
+
+// the plinth edge is a wall to feet on the turf; a jump clears it onto the floor
+await ev(() => {
+  const g = window.__game.game, P = g.limveld.pois.find((q) => q.type === 'church' && !q.ruined);
+  const sn = Math.sin(P.yaw), cs = Math.cos(P.yaw);
+  const kx = 13, kz = 10, tx = 6, tz = 10; // approach the forecourt plinth side (edge x 9.5) on the POI's flat disc
+  const x = P.x + kx * cs + kz * sn, z = P.z - kx * sn + kz * cs;
+  const wx = P.x + tx * cs + tz * sn, wz = P.z - tx * sn + tz * cs;
+  g.player.teleport(x, z);
+  const th = Math.atan2(wx - x, wz - z);
+  g.player.yaw = th;
+  g.cameraCtl.setOrbit(Math.PI + th, 0.3, 5.6); g.cameraCtl.snap();
+  window.__edge = { x, z };
+});
+await page.keyboard.down('KeyW'); await step(1.4);
+const edge1 = await ev(() => { const g = window.__game.game, p = g.player; return { h: p.pos.y - g.terrain.getHeight(p.pos.x, p.pos.z), moved: Math.hypot(p.pos.x - window.__edge.x, p.pos.z - window.__edge.z) }; });
+check('plinth edge blocks from below', edge1.h < 0.25 && edge1.moved < 5.2, `${edge1.moved.toFixed(1)} m in, ${edge1.h.toFixed(2)} m up`);
+await page.keyboard.press('KeyV'); await step(1.1); await page.keyboard.up('KeyW');
+const edge2 = await ev(() => { const g = window.__game.game, p = g.player; return p.pos.y - g.terrain.getHeight(p.pos.x, p.pos.z); });
+check('a jump clears the plinth edge onto the floor', edge2 > 0.4, `${edge2.toFixed(2)} m up after the jump`);
+await step(0.5);
+
 // tree collision: walk straight at a landmark dead tree (valley floor, (128,186) s=1.6) and get stopped by the trunk
 await ev(() => { const g = window.__game.game; g.player.teleport(128, 180); g.player.yaw = 0; g.cameraCtl.setOrbit(Math.PI, 0.3, 5.6); g.cameraCtl.snap(); });
 await page.keyboard.down('KeyW'); await step(2.0); await page.keyboard.up('KeyW');
@@ -96,21 +141,26 @@ const unreachable = await ev(() => {
   const g = window.__game.game, T = g.terrain, C = g.colliders, R = 0.42, cell = 0.5, MAX = 0.9;
   const reach = (sx, sz, tx, tz) => {
     const half = 45, n = Math.floor(2 * half / cell) + 1, ox = tx - half, oz = tz - half;
-    const seen = new Uint8Array(n * n), q = [];
+    const seen = new Uint8Array(n * n), gnd = new Float32Array(n * n), q = [];
     const si = Math.round((sx - ox) / cell), sj = Math.round((sz - oz) / cell), ti = Math.round((tx - ox) / cell), tj = Math.round((tz - oz) / cell);
     if (si < 0 || sj < 0 || si >= n || sj >= n) return false;
-    seen[sj * n + si] = 1; q.push(si, sj);
+    const st = T.getHeight(sx, sz), sp = C.groundAt(sx, sz, st, 0.56);
+    seen[sj * n + si] = 1; gnd[sj * n + si] = sp > st ? sp : st; q.push(si, sj);
     for (let head = 0; head < q.length;) {
       const i = q[head++], j = q[head++];
       if (Math.abs(i - ti) <= 2 && Math.abs(j - tj) <= 2) return true;
-      const x = ox + i * cell, z = oz + j * cell, h = T.getHeight(x, z);
+      const h = gnd[j * n + i];
       for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
         if (!di && !dj) continue;
         const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue;
-        const k = jj * n + ii; if (seen[k]) continue; seen[k] = 1;
-        const xx = ox + ii * cell, zz = oz + jj * cell, hh = T.getHeight(xx, zz);
-        if (hh - h > MAX * cell * Math.hypot(di, dj) || C.overlaps(xx, zz, R, hh, 1.8)) continue;
-        q.push(ii, jj);
+        const k = jj * n + ii; if (seen[k]) continue;
+        const xx = ox + ii * cell, zz = oz + jj * cell;
+        const tt = T.getHeight(xx, zz), pp = C.groundAt(xx, zz, h, 0.56), hh = pp > tt ? pp : tt;
+        // stepping onto a platform is a knee step; plain terrain keeps the climb limit; descents are free.
+        // seen is only marked on acceptance: a cell rejected from low ground can still be entered from a stair step.
+        const ok = pp > tt + 0.01 ? hh - h <= 0.56 : hh - h <= MAX * cell * Math.hypot(di, dj);
+        if (!ok || C.overlaps(xx, zz, R, hh, 1.8)) continue;
+        seen[k] = 1; gnd[k] = hh; q.push(ii, jj);
       }
     }
     return false;

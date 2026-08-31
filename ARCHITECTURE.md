@@ -12,7 +12,7 @@ Visual bar: **Ashen (A44 Games)** — low-poly, faceless humanoids (smooth featu
 index.html                 canvas + #hud root + #menu root
 src/main.js                boot: new Game(); game.start()
 src/core/Game.js           renderer, scene, camera, clock, system list, top-level state machine HUB→EXPEDITION→RESULTS
-src/core/Input.js          keyboard/mouse/gamepad → named actions (move, sprint, roll, light, heavy, skill, ult, lockOn, interact, map)
+src/core/Input.js          keyboard/mouse/gamepad → named actions (move, sprint, roll, jump, light, heavy, skill, ult, lockOn, interact, map)
 src/core/Events.js         tiny pub/sub bus: on/off/emit
 src/core/Rng.js            seeded mulberry32: rng.float(), rng.int(a,b), rng.pick(arr), rng.chance(p)
 src/core/Debug.js          window.__game: { teleport(x,z), setTime(day, t01), spawn(type), killAll(), setFps(), screenshotPose(name), fps }
@@ -26,7 +26,7 @@ src/world/Structures.js    buildable kits: church(), fort(), ruin(), catacombEnt
 src/entity/Entity.js       base: object3d, hp/maxHp, stamina, poise, radius, alive, update(dt), takeHit(hit)
 src/entity/Humanoid.js     low-poly faceless rig from primitives + procedural animation (idle, run, roll, hit, death); attacks are keyed pose clips (`keyed()`), played exactly after a short crossfade
 src/entity/Inventory.js    carried weapons (INVENTORY_MAX 6) + the held index: add (a full inventory trades the held one), equip, cycle, remove
-src/entity/Player.js       controller: movement rel. to camera, sprint, roll (i-frames), lock-on, light/heavy combos, the held weapon's skill (WEAPON_SKILLS), ultimate, stamina/FP, no fall damage; pickupWeapon / swapWeapon / equipWeapon drive the inventory + the rig's weapon mesh
+src/entity/Player.js       controller: movement rel. to camera, sprint, roll (i-frames), jump (clears plinths; air steering), lock-on, light/heavy combos, the held weapon's skill (WEAPON_SKILLS), ultimate, stamina/FP, no fall damage; pickupWeapon / swapWeapon / equipWeapon drive the inventory + the rig's weapon mesh
 src/entity/Camera.js       third-person orbit w/ lock-on framing, collision with terrain, shake, contact lunge
 src/entity/Enemy.js        base AI FSM: idle/patrol/alert/chase/attack/recover/stagger/dead; telegraphs; drops runes
 src/entity/enemies/*.js    Soldier, Wolf, Knight, Archer, Bat, Troll
