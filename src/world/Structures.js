@@ -133,6 +133,7 @@ export class Kit {
     this.floor = null;
     this.feet = [];    // kit-space footprints of geometry rooted in the ground (decal halos)
     this.solids = [];  // kit-space walk-blocking footprints {x, z, hw, hd, yaw | r, y0, y1} (Limveld feeds them to Colliders)
+    this.walks = [];   // kit-space walkable platforms {x, z, hw, hd, yaw, y0, y1}: solid:false floors / steps whose flat top is standable
     this.tracks = [];  // trodden-dirt polylines [{pts, w}]
     this.decal = null; // {x0, x1, z0, z1, cell} extent of the ground decal
     /** Shading knobs: gentle massing AO (aoBase at the ground -> 1 at aoTop), foundation band (bandK darker at the
@@ -167,6 +168,9 @@ export class Kit {
   /** Height of the surface this geometry stands on at kit (x, z): the declared built floor, else the terrain, else the frame. */
   floorAt(x, z) { return this.floor ?? (this.ground ? this.ground(x, z) : this.frame.elements[13]); }
 
+  /** Terrain height (kit space) under a point given in the CURRENT frame (0 without a ground sampler). */
+  groundLocal(lx, lz) { if (!this.ground) return 0; _p.set(lx, 0, lz).applyMatrix4(this.frame); return this.ground(_p.x, _p.z); }
+
   /**
    * Add a geometry transformed by (centre, euler) then the frame; bakes vertex colour:
    * tint x mul x massing AO x foundation band x mottle, damp base course. o: {tint, mul, ao:false, glow, dim, rx, ry, rz, seg, foot:false}.
@@ -175,10 +179,12 @@ export class Kit {
     if (!(Number.isFinite(cx + cy + cz + rx + ry + rz) && Number.isFinite(color))) throw new Error(`Kit.add: non-finite argument (${[color, cx, cy, cz, rx, ry, rz].join(', ')})`);
     _e.set(rx, ry, rz); _q.setFromEuler(_e); _p.set(cx, cy, cz); _m.compose(_p, _q, _s).premultiply(this.frame);
     if (geo.index) geo = geo.toNonIndexed();
-    // walk-blocking footprint from the local bounds (before the transform) — o.solid:false for floors and steps
+    // walk-blocking footprint from the local bounds (before the transform) — o.solid:false for floors and steps,
+    // which become walkable platforms instead (flat, yaw-only pieces: tilted causeway slabs stay terrain-walked)
     const solid = o.solid !== false && !o.glow && o.ao !== false;
+    const walk = o.solid === false && !o.glow && o.ao !== false && rx === 0 && rz === 0;
     let bb = null;
-    if (solid) { // plain numbers: applyMatrix4 below would recompute geo.boundingBox in place
+    if (solid || walk) { // plain numbers: applyMatrix4 below would recompute geo.boundingBox in place
       geo.computeBoundingBox(); const b = geo.boundingBox;
       bb = { cx: (b.min.x + b.max.x) / 2, cz: (b.min.z + b.max.z) / 2, hw: (b.max.x - b.min.x) / 2, hd: (b.max.z - b.min.z) / 2 };
     }
@@ -208,6 +214,7 @@ export class Kit {
     geo.setAttribute('warm', new THREE.BufferAttribute(warm, 1));
     if (shade && o.foot !== false) this.feet.push({ x0, x1, y0, y1, z0, z1 });
     if (solid) this._solid(bb, rx, rz, x0, x1, y0, y1, z0, z1, o);
+    else if (walk) this._walk(bb, y0, y1);
     (o.glow ? this.glows : this.geos).push(geo);
   }
   /**
@@ -227,6 +234,17 @@ export class Kit {
     const floor = this.floorAt(s.x, s.z);
     if (y1 < floor + 0.55 || y0 > floor + 2.2) return;
     this.solids.push(s);
+  }
+  /**
+   * Record a walkable platform (kit space) for the piece just added (declared solid:false, yaw-only): an oriented
+   * box whose flat top is standable and whose sides block below it, so plinths and stair steps are real floors.
+   * No knee/head filter — a 0.2 m step must register — but slivers are skipped.
+   */
+  _walk(bb, y0, y1) {
+    if (Math.min(bb.hw, bb.hd) < 0.12) return; // keep stair steps (~0.17 m half-depth); drop true slivers
+    const e = _m.elements, yaw = Math.atan2(e[8], e[10]);
+    _p.set(bb.cx, 0, bb.cz).applyMatrix4(_m);
+    this.walks.push({ x: _p.x, z: _p.z, hw: bb.hw, hd: bb.hd, yaw, y0, y1 });
   }
   _boxGeo(w, h, d, seg) { const s = seg ?? 1.5; return new THREE.BoxGeometry(w, h, d, Math.max(1, Math.round(w / s)), Math.max(1, Math.round(h / s)), Math.max(1, Math.round(d / s))); }
   /** Box with its base at y. Faces are subdivided every o.seg metres (default 1.5) so baked light can vary across them. */
@@ -451,7 +469,7 @@ export class Kit {
     }
     const decal = this._buildDecal();
     if (decal) group.add(decal);
-    return { group, spawns: this.spawns, fires: this.fires, radius: this.radius, solids: this.solids };
+    return { group, spawns: this.spawns, fires: this.fires, radius: this.radius, solids: this.solids, walks: this.walks };
   }
 }
 

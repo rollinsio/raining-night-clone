@@ -567,6 +567,20 @@ export const HUMANOID_CLIPS = {
     P.extra(E_HIPSY, -0.5 * tuck);
     P.extra(E_PITCH, TAU * sm(k));
   },
+  /** Airborne jump: legs gather into the apex then reach for the landing, arms lift for balance.
+   *  ctx.param: 0 rising -> 0.5 apex -> 1 falling (the Player writes it from vertical velocity). */
+  jump(t, P, ctx) {
+    const p = clamp01(ctx.param);
+    const tuck = Math.sin(Math.PI * clamp01(0.15 + p * 0.85)); // gathers into the apex, releases on the way down
+    const reach = sm(clamp01((p - 0.55) / 0.45));              // legs extend toward the landing
+    P.set('spine', 0.2 * tuck - 0.04, 0, 0); P.set('chest', 0.15 * tuck, 0, 0); P.set('head', -0.18 * tuck + 0.08 * reach, 0, 0);
+    P.set('hipL', -1.05 * tuck + 0.3 * reach, 0.05, 0.12); P.set('kneeL', 1.6 * tuck - 0.75 * reach, 0, 0); P.set('ankleL', 0.35 * tuck - 0.2 * reach, 0, 0);
+    P.set('hipR', -0.35 * tuck + 0.1 * reach, -0.05, -0.12); P.set('kneeR', 0.9 * tuck - 0.3 * reach, 0, 0); P.set('ankleR', 0.55 * tuck * (1 - reach), 0, 0);
+    P.set('shoulderL', -0.5 * tuck, 0, 0.55 * tuck + 0.15); P.set('elbowL', -0.5 * tuck, 0, 0);
+    P.set('shoulderR', -0.5 * tuck, 0, -0.55 * tuck - 0.15); P.set('elbowR', -0.5 * tuck, 0, 0);
+    P.extra(E_HIPSY, -0.12 * tuck);
+    P.extra(E_PITCH, 0.12 * tuck - 0.06 * reach);
+  },
   light1: keyed(LIGHT1_KEYS),
   light2: keyed(LIGHT2_KEYS),
   light3: keyed(LIGHT3_KEYS),
@@ -1226,7 +1240,7 @@ export function createHumanoid(opts = {}) {
   animator.onUpdate = (dt) => {
     if (cloak) {
       const ctx = animator.ctx, name = animator.name;
-      const want = name === 'run' ? 0.5 + 0.5 * clamp01(ctx.speed) : name === 'roll' ? 0.9 : 0;
+      const want = name === 'run' ? 0.5 + 0.5 * clamp01(ctx.speed) : name === 'roll' ? 0.9 : name === 'jump' ? 0.8 : 0;
       lift += (want - lift) * (1 - Math.exp(-6 * dt));
       time += dt;
       cloak.material.userData.uTime.value = time; cloak.material.userData.uLift.value = lift;

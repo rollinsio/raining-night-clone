@@ -261,7 +261,7 @@ export class HUD {
       <div class="h-prompt"><span class="u-key">E</span><span class="t"></span></div>
       <div class="h-warn">OUTSIDE THE NIGHT'S CIRCLE</div>
       <div class="h-title"><div class="b"></div><div class="u-orn"></div><div class="s"></div></div>
-      <div class="h-hint">move<b>W A S D</b><br>sprint<b>Shift</b><br>dodge roll<b>Space</b><br>light / heavy<b>LMB / RMB</b><br>lock-on<b>Q / MMB</b><br>interact<b>E</b><br>flask<b>C</b><br>skill / ultimate<b>1 / 2</b><br>swap weapon<b>X</b><br>inventory<b>I</b><br>map<b>M</b><br>pause<b>Esc</b></div>`;
+      <div class="h-hint">move<b>W A S D</b><br>sprint<b>Shift</b><br>dodge roll<b>Space</b><br>jump<b>V</b><br>light / heavy<b>LMB / RMB</b><br>lock-on<b>Q / MMB</b><br>interact<b>E</b><br>flask<b>C</b><br>skill / ultimate<b>1 / 2</b><br>swap weapon<b>X</b><br>inventory<b>I</b><br>map<b>M</b><br>pause<b>Esc</b></div>`;
     const q = (s) => root.querySelector(s);
     this.el = {
       hp: q('.h-hp .f'), hpTr: q('.h-hp .tr'), fp: q('.h-fp .f'), fpTr: q('.h-fp .tr'), st: q('.h-st .f'), stTr: q('.h-st .tr'), hpBar: q('.h-hp'), stBar: q('.h-st'), fpBar: q('.h-fp'),

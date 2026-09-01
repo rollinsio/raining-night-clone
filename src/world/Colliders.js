@@ -6,6 +6,12 @@
  * Entities are circles on the XZ plane; `resolve` pushes a position out of every overlapping solid (sliding, not
  * stopping). The band lets merlons, corbels and roof timbers sit in the grid without blocking anyone below them,
  * and lets a knee-high step stay walkable.
+ *
+ * Solids flagged `walk` are walkable platforms (church plinths, stair steps, thresholds): they block exactly like
+ * any solid through the band — a 0.9 m plinth edge is a wall to feet on the turf — but their FLAT TOP (`y1`) is
+ * standable ground: `groundAt` returns the highest platform top within a knee-step above the feet, and entity
+ * physics grounds to max(terrain, platform). Only declared-walkable pieces get the flag; the coarse tops of
+ * boulders and wall bands never support standing.
  */
 
 /** Andrew's monotone chain: convex hull of [[x,z],...] points, counter-clockwise (x right, z up), no repeats. */
@@ -92,6 +98,33 @@ export class Colliders {
     const c = Math.cos(yaw), s = Math.sin(yaw), pts = [];
     for (const [lx, lz] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) pts.push([x + lx * c + lz * s, z - lx * s + lz * c]);
     return this.addPoly(pts, kind, y0, y1);
+  }
+
+  /** Register a walkable platform box: blocks like any solid over [y0, y1], and its top (y1) supports standing. */
+  addWalkBox(x, z, hw, hd, yaw, y0, y1) {
+    const c = this.addBox(x, z, hw, hd, yaw, 'walk', y0, y1);
+    if (c) c.walk = true;
+    return c;
+  }
+
+  /**
+   * Highest walkable platform top at (x, z) no more than `step` above `yFoot` (the entity's feet), or -Infinity.
+   * `margin` lets a foot centred just off the slab edge still count as on it (matches the resolve slide).
+   */
+  groundAt(x, z, yFoot, step = KNEE, margin = 0.12) {
+    let best = -Infinity;
+    this.forEachNear(x, z, margin, (c) => {
+      if (!c.walk || c.y1 <= best || c.y1 > yFoot + step) return;
+      if (c.shape === 0) {
+        const dx = x - c.x, dz = z - c.z, r = c.r + margin;
+        if (dx * dx + dz * dz > r * r) return;
+      } else {
+        const { n, v, nrm } = c;
+        for (let i = 0; i < n; i++) if ((x - v[i * 2]) * nrm[i * 2] + (z - v[i * 2 + 1]) * nrm[i * 2 + 1] > margin) return;
+      }
+      best = c.y1;
+    });
+    return best;
   }
 
   /** Call fn(solid) for every solid whose cell range overlaps the circle (x,z,r). May repeat spilled solids. */

@@ -130,7 +130,11 @@ export class Limveld {
         T.raiseDome(bx, bz, 17, 9);
         T.flattenDisk(p.x, p.z, 6, 3, h);
       } else {
-        T.flattenDisk(p.x, p.z, p.r, p.r * 0.7);
+        const h = T.flattenDisk(p.x, p.z, p.r, p.r * 0.7);
+        // churches: the forecourt + stairs reach ~20 m out in FRONT of the centre, past the disc's feather, and a
+        // hillside chapel's turf can fall away faster than a stair flight descends — a small apron at the plinth's
+        // height keeps the flight's foot on ground it can meet within a few lead steps
+        if (p.type === 'church') T.flattenDisk(p.x + Math.sin(p.yaw) * 16, p.z + Math.cos(p.yaw) * 16, 7, 8, h);
       }
     }
     for (const a of this.arenas) T.flattenDisk(a.x, a.z, a.r, 30);
@@ -167,6 +171,11 @@ export class Limveld {
         const x = p.x + s.x * cs + s.z * sn, z = p.z - s.x * sn + s.z * cs;
         if (s.r !== undefined) C.add(x, z, s.r, 'struct', y + s.y0, y + s.y1);
         else C.addBox(x, z, s.hw, s.hd, s.yaw + p.yaw, 'struct', y + s.y0, y + s.y1);
+      }
+      // kit floors / steps as walkable platforms: block from below, standable on top (church plinths, stairs)
+      if (C && kit.walks) for (const s of kit.walks) {
+        const x = p.x + s.x * cs + s.z * sn, z = p.z - s.x * sn + s.z * cs;
+        C.addWalkBox(x, z, s.hw, s.hd, s.yaw + p.yaw, y + s.y0, y + s.y1);
       }
       for (const s of kit.spawns) {
         const x = p.x + s.x * cs + s.z * sn, z = p.z - s.x * sn + s.z * cs;
