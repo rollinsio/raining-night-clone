@@ -1,5 +1,5 @@
 /**
- * Run state: 3 days, each ~4.5 min split into explore -> ring1 -> explore -> ring2 -> boss.
+ * Run state: 3 days, each ~8.5 min split into explore -> ring1 -> explore -> ring2 -> boss.
  * Spawns the world's enemies, drives the ring schedule, placeholder bosses (scaled Soldiers),
  * player respawn, day advance and win/abandon.
  */
@@ -9,9 +9,9 @@ import { Soldier } from '../entity/enemies/Soldier.js';
 import { Wolf } from '../entity/enemies/Wolf.js';
 import { createBoss } from '../entity/bosses/index.js';
 
-export const DAY_LENGTH = 270;
+export const DAY_LENGTH = 510;
 const SCHEDULE = [
-  { at: 0, phase: 'explore' }, { at: 60, phase: 'ring1' }, { at: 120, phase: 'explore2' }, { at: 180, phase: 'ring2' }, { at: 240, phase: 'boss' },
+  { at: 0, phase: 'explore' }, { at: 120, phase: 'ring1' }, { at: 240, phase: 'explore2' }, { at: 360, phase: 'ring2' }, { at: 480, phase: 'boss' },
 ];
 const BOSSES = [
   null,
@@ -22,10 +22,14 @@ const BOSSES = [
 export const ROMAN = ['', 'I', 'II', 'III'];
 const RING_R = [0, 560, 270, 115];
 /**
- * Peak speed of the ring's edge toward a fleeing player (m/s): radius shrink + centre travel, times the
- * smoothstep easing's 1.5× mid-shrink peak. Held under walk speed (5.8) so the night can always be outwalked.
+ * Every shrink takes exactly SHRINK_DUR seconds, so each day beats 2 min explore / 2 min closing /
+ * 2 min explore / 2 min closing / boss. The edge's peak speed toward a fleeing player is
+ * 1.5 × (radius delta + centre travel) / SHRINK_DUR (the 1.5× is the smoothstep easing's mid-shrink
+ * peak); MAX_DRIFT[n] caps each ring's centre travel so that peak stays under walk speed (5.8) and
+ * the night can always be outwalked.
  */
-const RING_EDGE_SPEED = 4.6;
+const SHRINK_DUR = 120;
+const MAX_DRIFT = [0, 150, 145]; // ring1: 1.5*(290+150)/120 = 5.5 m/s; ring2: 1.5*(155+145)/120 = 3.75 m/s
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 export class Expedition {
@@ -85,9 +89,9 @@ export class Expedition {
     if (ai === this.lastArena) ai = (ai + 1) % arenas.length;
     this.lastArena = ai; this.arena = arenas[ai];
     const c2 = this.ringCenters[2].set(this.arena.x, 0, this.arena.z);
-    const a1 = this.rng.float() * Math.PI * 2, d1 = this.rng.range(40, RING_R[2] - RING_R[3] - 10);
+    const a1 = this.rng.float() * Math.PI * 2, d1 = this.rng.range(40, Math.min(MAX_DRIFT[2], RING_R[2] - RING_R[3] - 10));
     const c1 = this.ringCenters[1].set(clamp(c2.x + Math.cos(a1) * d1, -300, 300), 0, clamp(c2.z + Math.sin(a1) * d1, -300, 300));
-    const a0 = this.rng.float() * Math.PI * 2, d0 = this.rng.range(60, RING_R[1] - RING_R[2] - 20);
+    const a0 = this.rng.float() * Math.PI * 2, d0 = this.rng.range(60, Math.min(MAX_DRIFT[1], RING_R[1] - RING_R[2] - 20));
     const c0 = this.ringCenters[0].set(clamp(c1.x + Math.cos(a0) * d0, -200, 200), 0, clamp(c1.z + Math.sin(a0) * d0, -200, 200));
     this.ring.setImmediate(c0, RING_R[1]);
     game.atmosphere.setTime(day, 0);
@@ -103,15 +107,8 @@ export class Expedition {
     else if (phase === 'boss') this.spawnBoss();
   }
 
-  /**
-   * Shrink with a duration derived from how far the edge actually travels (radius delta + centre travel),
-   * so its peak speed stays at RING_EDGE_SPEED. A long first shrink may still be closing when the next phase
-   * starts; shrinkTo just re-aims from wherever the ring is.
-   */
   startShrink(center, toR) {
-    const r = this.ring;
-    const travel = Math.max(0, r.radius - toR) + Math.hypot(center.x - r.center.x, center.z - r.center.z);
-    r.shrinkTo(center, toR, Math.max(20, Math.ceil((1.5 * travel) / RING_EDGE_SPEED)));
+    this.ring.shrinkTo(center, toR, SHRINK_DUR);
   }
 
   spawnBoss() {
@@ -155,7 +152,7 @@ export class Expedition {
       if (this.dayEndT <= 0) { this.dayEndT = -1; if (this.day < 3) this.startDay(this.day + 1); else this.win(); }
     }
     this.tintT -= dt;
-    if (this.tintT <= 0) { this.tintT = 2; game.atmosphere.setTime(this.day, clamp(this.t / 240, 0, 1)); }
+    if (this.tintT <= 0) { this.tintT = 2; game.atmosphere.setTime(this.day, clamp(this.t / 480, 0, 1)); }
   }
 
   /** Seconds until the next scheduled phase (0 when none). */
@@ -168,7 +165,7 @@ export class Expedition {
   setTime(day, t01) {
     if (this.boss) { this.boss.remove = true; this.boss.alive = false; }
     this.startDay(clamp(day | 0, 1, 3));
-    this.t = clamp(t01, 0, 1) * 240;
+    this.t = clamp(t01, 0, 1) * 480;
     for (let i = 1; i < SCHEDULE.length && SCHEDULE[i].at <= this.t + 0.5; i++) { this.phaseIdx = i; this.enterPhase(SCHEDULE[i].phase); this.ring.finishShrink(); }
   }
 
