@@ -52,7 +52,9 @@ export class Entity {
       this.object3d.remove(this.blob);
       this.blob = this.contact;
     }
-    this.game.terrain.getNormal(this.pos.x, this.pos.z, _n).applyAxisAngle(UP, -this.yaw);
+    // on a built floor (feet above the heightfield) the blob lies flat; on turf it follows the slope
+    if (this.pos.y - this.game.terrain.getHeight(this.pos.x, this.pos.z) > 0.08) _n.set(0, 1, 0);
+    else this.game.terrain.getNormal(this.pos.x, this.pos.z, _n).applyAxisAngle(UP, -this.yaw);
     this.contact.quaternion.setFromUnitVectors(UP, _n);
     const a = this.alive ? 1 : Math.max(0.25, 1 - this.deadT * 0.4);
     this.contact.visible = a > 0.05;
@@ -109,8 +111,14 @@ export class Entity {
     if (this.pos.z > lim) this.pos.z = lim; else if (this.pos.z < -lim) this.pos.z = -lim;
     // static solids (trunks, rocks, walls): slide out of any we overlap before sampling the ground under the final spot
     if (this.game.colliders) this.game.colliders.resolve(this.pos, this.radius, this.height, Math.max(this.pos.y, T.getHeight(this.pos.x, this.pos.z)));
-    const h = T.getHeight(this.pos.x, this.pos.z);
-    if (this.pos.y <= h) { this.pos.y = h; if (this.vel.y < 0) this.vel.y = 0; this.onGround = true; }
+    const th = T.getHeight(this.pos.x, this.pos.z);
+    if (this.pos.y <= th) { this.pos.y = th; if (this.vel.y < 0) this.vel.y = 0; } // the heightfield is always solid
+    let h = th;
+    if (this.game.colliders) { // walkable platform tops (church floors, plinths, steps) within a knee-step of the feet
+      const g = this.game.colliders.groundAt(this.pos.x, this.pos.z, Math.max(this.pos.y, th), 0.55);
+      if (g > h) h = g;
+    }
+    if (this.pos.y <= h && this.vel.y <= 0) { this.pos.y = h; this.vel.y = 0; this.onGround = true; } // vel.y > 0: rising past a floor lip, do not snap
     else this.onGround = this.pos.y - h < 0.05;
     this.object3d.rotation.y = this.yaw;
     this.groundContact();
@@ -172,9 +180,11 @@ export class Entity {
   onStagger(hit) {}
   onDeath(hit) {}
 
-  /** Place on terrain at (x,z). */
+  /** Place on the ground at (x,z): the terrain, or a built floor above it (teleports land on top of plinths). */
   teleport(x, z) {
-    this.pos.set(x, this.game.terrain.getHeight(x, z), z);
+    let y = this.game.terrain.getHeight(x, z);
+    if (this.game.colliders) { const g = this.game.colliders.groundAt(x, z, Infinity); if (g > y) y = g; }
+    this.pos.set(x, y, z);
     this.vel.set(0, 0, 0); this.knock.set(0, 0, 0);
     this.object3d.rotation.y = this.yaw;
     this.groundContact();

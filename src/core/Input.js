@@ -7,7 +7,7 @@ const KEYMAP = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
   ShiftLeft: 'sprint', ShiftRight: 'sprint', Space: 'roll', KeyE: 'interact', KeyQ: 'lockOn',
   Digit1: 'skill', Digit2: 'ult', KeyC: 'flask', KeyM: 'map', Escape: 'pause', KeyF: 'light', KeyR: 'heavy', Tab: 'lockOn',
-  KeyX: 'swapWeapon', KeyI: 'inventory',
+  KeyX: 'swapWeapon', KeyI: 'inventory', KeyV: 'jump',
 };
 const MOUSEMAP = { 0: 'light', 1: 'lockOn', 2: 'heavy' };
 
@@ -79,7 +79,7 @@ export class Input {
         const b = gp.buttons;
         const edge = (i, a) => { const d = !!(b[i] && b[i].pressed); const k = 'gp' + i; if (d && !this[k]) this.pressed.add(a); if (d) this.held.add(a); else this.held.delete(a); this[k] = d; };
         edge(0, 'roll'); edge(2, 'light'); edge(5, 'light'); edge(7, 'heavy'); edge(3, 'interact'); edge(11, 'lockOn'); edge(4, 'skill'); edge(6, 'ult'); edge(9, 'pause');
-        edge(15, 'swapWeapon'); edge(8, 'inventory'); // d-pad right / select
+        edge(15, 'swapWeapon'); edge(8, 'inventory'); edge(1, 'jump'); // d-pad right / select / B
         if (b[10] && b[10].pressed) this.held.add('sprint');
       }
     }

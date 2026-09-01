@@ -16,6 +16,7 @@ const FLASK_HEAL = 0.4;           // fraction of max HP restored per crimson fla
 const COMBAT_R = 45, COMBAT_LINGER = 4; // an aggro'd enemy this close, or a hit this recent, counts as combat
 const UP = new THREE.Vector3(0, 1, 0);
 const WALK = 5.8, SPRINT = 9.3, ROLL_DUR = 0.55, ROLL_SPEED = 8.6, DEG = Math.PI / 180;
+const JUMP_V = 8.2;               // upward impulse; apex = v^2 / 2g ~ 1.4 m, clears a church plinth (0.9 m)
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const sm = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 
@@ -128,7 +129,7 @@ export class Player extends Entity {
     if (this.bufferT > 0) { this.bufferT -= dt; if (this.bufferT <= 0) this.bufferAction = null; }
     this.fp = Math.min(this.maxFp, this.fp + 0.7 * dt);
 
-    for (const a of ['light', 'heavy', 'roll', 'skill', 'ult', 'flask', 'swapWeapon']) if (input.wasPressed(a)) this.buffer(a);
+    for (const a of ['light', 'heavy', 'roll', 'jump', 'skill', 'ult', 'flask', 'swapWeapon']) if (input.wasPressed(a)) this.buffer(a);
     if (input.wasPressed('lockOn')) this.toggleLock();
     if (this.lockTarget && (!this.lockTarget.alive || this.distanceTo(this.lockTarget) > 42)) this.setLock(null);
 
@@ -141,6 +142,7 @@ export class Player extends Entity {
     switch (this.state) {
       case 'idle': case 'move': this.updateLocomotion(dt, _move, len); break;
       case 'roll': this.updateRoll(dt); break;
+      case 'jump': this.updateJump(dt, _move, len); break;
       case 'attack': this.updateAttack(dt, _move, len); break;
       case 'hit': this.decel(dt); if (this.stateT > this.hitDur) { this.setState('idle'); anim.play('idle'); } break;
       case 'rest': this.decel(dt); anim.play('rest', { rate: 8 }); if (this.stateT > 0.6 && (len > 0.001 || this.bufferAction)) { this.setState('idle'); anim.play('idle'); } break;
@@ -178,6 +180,7 @@ export class Player extends Entity {
     if (this.bufferAction === 'flask') { this.takeBuffer('flask'); this.drinkFlask(); return; }
     if (this.bufferAction === 'swapWeapon') { this.takeBuffer('swapWeapon'); this.swapWeapon(1); return; }
     if (this.bufferAction === 'roll' && this.stamina > 0) { this.takeBuffer('roll'); this.startRoll(len > 0.001 ? move : this.forward()); return; }
+    if (this.bufferAction === 'jump' && this.stamina > 0 && this.onGround) { this.takeBuffer('jump'); this.startJump(); return; }
     if (this.bufferAction === 'light' && this.stamina > 0) { this.takeBuffer('light'); this.comboIndex = 0; this.startAttack(this.moveset.light[0], false, move, len); return; }
     if (this.bufferAction === 'heavy' && this.stamina > 0) { this.takeBuffer('heavy'); this.startAttack(this.moveset.heavy, true, move, len); return; }
     if (this.bufferAction === 'skill') {
@@ -227,6 +230,33 @@ export class Player extends Entity {
     for (let i = 0; i < n; i++) { // a fan around the aim line (skills: Barrage, Glintstone Arc)
       _fan.copy(_aim).applyAxisAngle(UP, (i - (n - 1) / 2) * spread);
       this.game.combat.projectiles.fire(this, def, _org, _fan);
+    }
+  }
+
+  /** Jump from locomotion: full upward impulse, the run speed carried into the air, small stamina cost. */
+  startJump() {
+    this.stamina -= 8; this.staminaDelay = 0.6;
+    this.vel.y = JUMP_V;
+    this.sprinting = false;
+    this.setState('jump');
+    this.anim.ctx.param = 0;
+    this.anim.play('jump', { restart: true, blend: 0.06 });
+  }
+
+  /** Airborne: gravity does the work; the stick steers at reduced authority without adding speed. */
+  updateJump(dt, move, len) {
+    if (len > 0.001) {
+      this.vel.x += move.x * 10 * dt; this.vel.z += move.z * 10 * dt;
+      const sp = Math.hypot(this.vel.x, this.vel.z), max = Math.max(this.speed, WALK);
+      if (sp > max) { this.vel.x *= max / sp; this.vel.z *= max / sp; }
+      this.moveDir.copy(move);
+      this.faceToward(this.pos.x + move.x, this.pos.z + move.z, dt, 6);
+    }
+    this.anim.ctx.param = clamp(0.5 - this.vel.y / (2 * JUMP_V), 0, 1); // 0 rising -> 0.5 apex -> 1 falling
+    if (this.onGround && this.stateT > 0.08) { // landed (applyPhysics grounded us last step)
+      this.speed = Math.hypot(this.vel.x, this.vel.z);
+      this.setState('idle');
+      this.anim.play(this.speed > 0.4 ? 'run' : 'idle');
     }
   }
 
