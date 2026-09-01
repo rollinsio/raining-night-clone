@@ -21,6 +21,11 @@ const BOSSES = [
 ];
 export const ROMAN = ['', 'I', 'II', 'III'];
 const RING_R = [0, 560, 270, 115];
+/**
+ * Peak speed of the ring's edge toward a fleeing player (m/s): radius shrink + centre travel, times the
+ * smoothstep easing's 1.5× mid-shrink peak. Held under walk speed (5.8) so the night can always be outwalked.
+ */
+const RING_EDGE_SPEED = 4.6;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 export class Expedition {
@@ -43,7 +48,7 @@ export class Expedition {
     p.yaw = Math.atan2(-L.spawn.x, -L.spawn.z);
     p.respawnPoint.set(L.spawn.x, 0, L.spawn.z); p.respawnName = 'Limveld Overlook';
     game.cameraCtl.follow();
-    game.cameraCtl.setOrbit(Math.atan2(L.spawn.x, L.spawn.z), 0.28, 5.6);
+    game.cameraCtl.setOrbit(Math.atan2(L.spawn.x, L.spawn.z), 0.28, game.cameraCtl.baseDist);
     game.cameraCtl.snap();
     this.populate();
     this._unsubs.push(
@@ -93,9 +98,20 @@ export class Expedition {
   enterPhase(phase) {
     this.phase = phase;
     this.game.events.emit('ring:phase', { phase, day: this.day });
-    if (phase === 'ring1') { this.ring.shrinkTo(this.ringCenters[1], RING_R[2], 60); this.game.hud.showTitle('', 'THE NIGHT CLOSES IN'); }
-    else if (phase === 'ring2') { this.ring.shrinkTo(this.ringCenters[2], RING_R[3], 60); this.game.hud.showTitle('', 'THE NIGHT CLOSES IN'); }
+    if (phase === 'ring1') { this.startShrink(this.ringCenters[1], RING_R[2]); this.game.hud.showTitle('', 'THE NIGHT CLOSES IN'); }
+    else if (phase === 'ring2') { this.startShrink(this.ringCenters[2], RING_R[3]); this.game.hud.showTitle('', 'THE NIGHT CLOSES IN'); }
     else if (phase === 'boss') this.spawnBoss();
+  }
+
+  /**
+   * Shrink with a duration derived from how far the edge actually travels (radius delta + centre travel),
+   * so its peak speed stays at RING_EDGE_SPEED. A long first shrink may still be closing when the next phase
+   * starts; shrinkTo just re-aims from wherever the ring is.
+   */
+  startShrink(center, toR) {
+    const r = this.ring;
+    const travel = Math.max(0, r.radius - toR) + Math.hypot(center.x - r.center.x, center.z - r.center.z);
+    r.shrinkTo(center, toR, Math.max(20, Math.ceil((1.5 * travel) / RING_EDGE_SPEED)));
   }
 
   spawnBoss() {

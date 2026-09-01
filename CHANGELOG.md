@@ -3,6 +3,16 @@
 One line per module: what exists, and any known stubs. Folder ownership per ARCHITECTURE.md; the
 skeleton build touched every folder once — later builders own their folders from here.
 
+## Punchlist: ranged feel, skill cooldowns, night pace, hit lock-on, camera distance (2026-09-01)
+
+- `entity/Player.js` — `fireRanged`: unlocked shots follow the camera's pitch (plus a hair of arc against arrow drop) instead of flying level into the nearest up-slope, and the soft aim assist widened (±0.35 rad, 48 m); weapon skills are gated by cooldown alone — no FP cost (`updateLocomotion` skill branch; the ultimate and staff heavy casts still spend FP); `lockOnAttacker`: a hit taken while unlocked snaps the lock onto the attacker (alive, hostile, ≤ 32 m) from both `onHurt` and `onStagger` (which now also sets `combatT`).
+- `combat/Projectiles.js` — arrows leave a pale tracer (`KINDS.arrow.tracer` → `streak()`: short-lived stretched motes along the flight path) so shots visibly read; bolts keep their glow puffs.
+- `combat/Weapons.js` — `WEAPON_SKILLS` entries dropped their `fp` field (cooldown is the only gate); `SKILLS.ult` keeps its FP cost.
+- `run/Expedition.js` — `startShrink`: ring shrink duration is derived from the edge's actual travel (radius delta + centre travel) so its smoothstep peak speed stays at `RING_EDGE_SPEED` 4.6 m/s — under walk speed (5.8); a long first shrink may still be closing when ring2 starts, which simply re-aims from wherever the ring is. Expedition start uses the camera's configured follow distance.
+- `entity/Camera.js` — `CAM_DISTANCES` (close 5.6 / default 6.8 / far 8.2), default pulled back from 5.6 to 6.8; `baseDist` persists in localStorage and `setDistance` / `follow()` apply it (poses may still set `dist` directly).
+- `ui/Menus.js` — pause menu gains a Camera row (Close / Default / Far) beside Quality; inventory cards show `Ns cooldown` instead of an FP cost.
+- `tools/smoke.mjs` — skill check asserts cooldown armed with no FP spent; the lock-on check aims the camera at the wolf first (an earlier hit may have auto-locked and swung the camera).
+
 ## Weapon switching, weapon skills, inventory (2026-08-29)
 
 - `entity/Inventory.js` — NEW: the weapons carried this expedition (max 6) and which is held: `add` (a full inventory trades the held weapon for the pickup, never a stowed one), `equip`, `cycle`, `remove` (never the last).
