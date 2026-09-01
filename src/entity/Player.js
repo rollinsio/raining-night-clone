@@ -186,7 +186,7 @@ export class Player extends Entity {
     if (this.bufferAction === 'skill') {
       this.takeBuffer('skill');
       const sk = this.skill;
-      if (this.skillCd <= 0 && this.fp >= sk.fp) { this.fp -= sk.fp; this.skillCd = sk.cooldown; this.startAttack(sk.def, true, move, len); }
+      if (this.skillCd <= 0) { this.skillCd = sk.cooldown; this.startAttack(sk.def, true, move, len); } // cooldown-gated, no FP
       return;
     }
     if (this.bufferAction === 'ult') {
@@ -208,19 +208,23 @@ export class Player extends Entity {
 
   /**
    * Ranged release from the chest: at the lock target's body, else at the nearest enemy close to the aim line
-   * (a soft assist — precise aiming on a touch pad is hopeless), else level along the facing.
+   * (a soft assist — precise aiming on a touch pad is hopeless), else along the camera's pitch so shots go
+   * where the player is looking (uphill, downhill) instead of skimming level into the nearest slope.
    */
   fireRanged(def) {
     _org.set(this.pos.x + Math.sin(this.yaw) * 0.45, this.pos.y + 1.35, this.pos.z + Math.cos(this.yaw) * 0.45);
-    let t = this.lockTarget, bestA = 0.22;
+    let t = this.lockTarget, bestA = 0.35;
     if (!t) for (const e of this.game.entities) {
       if (e === this || !e.alive || e.team === 'player') continue;
-      const d = this.distanceTo(e); if (d > 36) continue;
+      const d = this.distanceTo(e); if (d > 48) continue;
       let rel = Math.atan2(e.pos.x - this.pos.x, e.pos.z - this.pos.z) - this.yaw; rel = Math.abs(Math.atan2(Math.sin(rel), Math.cos(rel)));
       if (rel < bestA) { bestA = rel; t = e; }
     }
     if (t) _aim.set(t.pos.x, t.pos.y + t.height * t.scale * 0.55, t.pos.z).sub(_org).normalize();
-    else _aim.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+    else {
+      const pitch = this.game.cameraCtl.pitch, cp = Math.cos(pitch);
+      _aim.set(Math.sin(this.yaw) * cp, -Math.sin(pitch) + 0.05, Math.cos(this.yaw) * cp).normalize(); // +0.05: a hair of arc against arrow drop
+    }
     const n = def.ranged.count || 1, spread = def.ranged.spread || 0;
     if (n <= 1) { this.game.combat.projectiles.fire(this, def, _org, _aim); return; }
     for (let i = 0; i < n; i++) { // a fan around the aim line (skills: Barrage, Glintstone Arc)
@@ -356,8 +360,15 @@ export class Player extends Entity {
     return false;
   }
 
+  /** Getting hit while unlocked snaps the lock onto the attacker (within lock-on range). */
+  lockOnAttacker(hit) {
+    const s = hit && hit.source;
+    if (!this.lockTarget && s && s.alive && s.team !== 'player' && this.distanceTo(s) <= 32) this.setLock(s);
+  }
+
   onHurt(hit) {
     this.combatT = COMBAT_LINGER;
+    this.lockOnAttacker(hit);
     if (this.state !== 'roll') {
       this.setState('hit'); this.hitDur = 0.35; this.anim.ctx.dur = 0.35; setHitCtx(this.anim.ctx, hit, this.yaw);
       this.anim.play('hit', { restart: true, blend: 0.03 }); this.attack.phase = 'none'; // snaps: the clip itself relaxes
@@ -365,6 +376,8 @@ export class Player extends Entity {
     this.game.cameraCtl.addShake(0.45); this.game.postfx.flashDamage(0.55);
   }
   onStagger(hit) {
+    this.combatT = COMBAT_LINGER;
+    this.lockOnAttacker(hit);
     this.setState('hit'); this.hitDur = 0.8; this.anim.ctx.dur = 0.8; setHitCtx(this.anim.ctx, hit, this.yaw);
     this.anim.play('stagger', { restart: true, blend: 0.04 }); this.attack.phase = 'none';
     this.game.cameraCtl.addShake(0.8); this.game.postfx.flashDamage(0.8);

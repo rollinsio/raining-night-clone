@@ -8,10 +8,18 @@ import * as THREE from 'three';
 const _v = new THREE.Vector3(), _pivot = new THREE.Vector3(), _desired = new THREE.Vector3(), _look = new THREE.Vector3(), _off = new THREE.Vector3();
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
+/** Follow distances the pause menu offers; DIST_DEFAULT is used until the player picks one. */
+export const CAM_DISTANCES = { close: 5.6, default: 6.8, far: 8.2 };
+const DIST_KEY = 'nightreign-cam-dist';
+
 export class CameraController {
   constructor(game) {
     this.game = game; this.camera = game.camera;
-    this.yaw = Math.PI; this.pitch = 0.3; this.dist = 5.6;
+    let saved = 0;
+    try { saved = parseFloat(localStorage.getItem(DIST_KEY)) || 0; } catch (e) { /* storage unavailable */ }
+    /** Follow-mode orbit distance; poses may set `dist` directly, follow() restores this. */
+    this.baseDist = saved || CAM_DISTANCES.default;
+    this.yaw = Math.PI; this.pitch = 0.3; this.dist = this.baseDist;
     this.mode = 'orbit';
     this.lockTarget = null;
     this.smoothPivot = new THREE.Vector3(); this.pos = new THREE.Vector3();
@@ -27,7 +35,13 @@ export class CameraController {
   }
 
   setOrbitMode(center, radius = 16) { this.mode = 'orbit'; this.orbitCenter.copy(center); this.orbitR = radius; this.lockTarget = null; }
-  follow() { this.mode = 'follow'; this.initialized = false; }
+  follow() { this.mode = 'follow'; this.initialized = false; this.dist = this.baseDist; }
+  /** Set (and persist) the follow distance — the pause menu's camera row. */
+  setDistance(d) {
+    this.baseDist = d;
+    if (this.mode === 'follow') this.dist = d;
+    try { localStorage.setItem(DIST_KEY, String(d)); } catch (e) { /* storage unavailable */ }
+  }
   /** Set the orbit (screenshot poses / respawn). `side` / `lift` shift the framing for one composition and reset on the next call. */
   setOrbit(yaw, pitch, dist, side = 0, lift = 0) { this.yaw = yaw; this.pitch = pitch; if (dist) this.dist = dist; this.side = side; this.lift = lift; }
   addShake(a) { this.shake = Math.min(1, this.shake + a); }

@@ -198,10 +198,9 @@ await page.keyboard.press('KeyX'); await step(0.1);
 const inv3 = await ev(() => { const p = window.__game.game.player; return { id: p.weapon.id, vis: p.rig.weaponVisual, combo: p.moveset.light.length }; });
 check('X swaps to the next carried weapon (daggers, dual mesh)', inv3.id === 'daggers' && inv3.vis === 'dagger', JSON.stringify(inv3));
 await ev(() => window.__game.equip(0));
-const fp0 = await ev(() => window.__game.game.player.fp);
 await page.keyboard.press('Digit1'); await step(0.1);
-const sk1 = await ev(() => { const p = window.__game.game.player; return { st: p.state, step: p.attack.def && p.attack.def.step, fp: p.fp }; });
-check("skill casts the held weapon's art (greatsword: Lion's Claw)", sk1.st === 'attack' && sk1.step === 3.4 && sk1.fp < fp0, JSON.stringify(sk1));
+const sk1 = await ev(() => { const p = window.__game.game.player; return { st: p.state, step: p.attack.def && p.attack.def.step, cd: p.skillCd }; });
+check("skill casts the held weapon's art (greatsword: Lion's Claw), cooldown armed, no FP", sk1.st === 'attack' && sk1.step === 3.4 && sk1.cd > 0, JSON.stringify(sk1));
 await step(1.5);
 await ev(() => { const p = window.__game.game.player; window.__game.giveWeapon('halberd', 'legendary'); p.skillCd = 0; p.fp = p.maxFp; });
 const yaw0 = await ev(() => window.__game.game.player.yaw);
@@ -255,7 +254,13 @@ check('kill pays runes', runes1 > runes0, `${runes0} -> ${runes1}`);
 check('enemy:died counted', await ev(() => window.__game.game.run.stats.kills >= 1));
 
 // lock-on
-await ev(() => { const e = window.__game.spawn('wolf'); e.teleport(10, 66); });
+await ev(() => {
+  const g = window.__game.game, e = window.__game.spawn('wolf');
+  e.teleport(10, 66);
+  // face the camera at the wolf: an earlier hit may have auto-locked and swung the camera elsewhere
+  g.cameraCtl.yaw = Math.atan2(-(e.pos.x - g.player.pos.x), -(e.pos.z - g.player.pos.z));
+  g.cameraCtl.snap();
+});
 await page.keyboard.press('KeyQ'); await step(0.2);
 check('lock-on acquires a target', await ev(() => !!window.__game.game.player.lockTarget));
 await page.keyboard.press('KeyQ');

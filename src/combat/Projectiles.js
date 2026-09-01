@@ -12,7 +12,7 @@ const _p = new THREE.Vector3(), _q = new THREE.Vector3(), _d = new THREE.Vector3
 const MAX = 24;
 
 const KINDS = {
-  arrow:      { radius: 0.18, glow: null },
+  arrow:      { radius: 0.18, glow: null, tracer: 0xdfe6f2 },
   glintstone: { radius: 0.32, glow: 0x8a6aff, size: 0.13 },
   comet:      { radius: 0.5, glow: 0x9a7aff, size: 0.24 },
 };
@@ -52,7 +52,7 @@ export class Projectiles {
     const R = def.ranged, K = KINDS[R.kind] || KINDS.arrow;
     if (this.list.length >= MAX) this.kill(0);
     const mesh = this.makeMesh(R.kind);
-    const pr = { att, def, kind: R.kind, pos: origin.clone(), vel: dir.clone().multiplyScalar(R.speed), life: R.life || 1.8, radius: R.radius || K.radius, mesh, glow: K.glow };
+    const pr = { att, def, kind: R.kind, pos: origin.clone(), vel: dir.clone().multiplyScalar(R.speed), life: R.life || 1.8, radius: R.radius || K.radius, mesh, glow: K.glow, tracer: K.tracer };
     mesh.position.copy(pr.pos); mesh.lookAt(_p.copy(pr.pos).add(dir));
     this.game.scene.add(mesh); this.list.push(pr);
     if (K.glow) { this.combat.flashLight(origin, K.glow, 1.4); this.puff(pr, 6, 0.6); }
@@ -68,6 +68,7 @@ export class Projectiles {
       pr.life -= dt;
       pr.mesh.position.copy(pr.pos); pr.mesh.lookAt(_p.copy(pr.pos).add(pr.vel));
       if (pr.glow) this.puff(pr, 2, 0.22);
+      else if (pr.tracer) this.streak(pr);
       // swept hit test: closest point on this step's segment to each hostile's body cylinder
       let hit = null;
       _d.subVectors(pr.pos, _q); const L2 = _d.lengthSq() || 1e-6;
@@ -90,6 +91,13 @@ export class Projectiles {
       }
       if (pr.life <= 0) this.kill(i);
     }
+  }
+
+  /** Pale streak an arrow leaves in flight — a short-lived mote stretched along the velocity so shots read at speed. */
+  streak(pr) {
+    const s = this.combat.sparks; _c.setHex(pr.tracer);
+    s.spawn(pr.pos.x, pr.pos.y, pr.pos.z, pr.vel.x * 0.04, pr.vel.y * 0.04, pr.vel.z * 0.04,
+      0.16 + Math.random() * 0.08, 0.028, _c.r * 1.5, _c.g * 1.5, _c.b * 1.5, 0, 2.2, 6, 0);
   }
 
   /** Soft glow motes shed along a bolt's path (n particles, spread in m). */

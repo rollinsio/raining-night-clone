@@ -78,28 +78,29 @@ export const MOVESETS = {
 };
 
 /**
- * Weapon skills (one per weapon type; `WEAPONS[id].skill` names one). Each is an attack def plus optional extras the
+ * Weapon skills (one per weapon type; `WEAPONS[id].skill` names one). Gated by cooldown alone (no FP cost —
+ * FP belongs to casts and the ultimate). Each is an attack def plus optional extras the
  * Player understands: `spin` (radians of yaw turned over the active frames), `iframes` (seconds of invulnerability
  * from the first frame), `buff` {mul, dur} (attack multiplier for dur seconds), `radial` (hit test is the arc
  * sector around the body instead of the swept blade — shockwaves), `ranged.count` / `ranged.spread` (a fan of
  * projectiles, spread in radians between neighbours). `desc` is the inventory blurb.
  */
 export const WEAPON_SKILLS = {
-  lionsClaw:     { name: "Lion's Claw", desc: 'Bound forward and bring the blade down with the whole body behind it.', fp: 22, cooldown: 10,
+  lionsClaw:     { name: "Lion's Claw", desc: 'Bound forward and bring the blade down with the whole body behind it.', cooldown: 10,
     def: { clip: 'heavy', windup: 0.34, active: 0.3, recover: 0.5, motion: 2.6, arcFrom: -40, arcTo: 40, stamina: 0, knock: 7, step: 3.4, poiseMul: 3 } },
-  lunge:         { name: 'Lunging Strike', desc: 'A long thrust that closes the distance in a blink.', fp: 18, cooldown: 8,
+  lunge:         { name: 'Lunging Strike', desc: 'A long thrust that closes the distance in a blink.', cooldown: 8,
     def: { clip: 'light3', windup: 0.14, active: 0.22, recover: 0.42, motion: 1.9, arcFrom: -45, arcTo: 45, stamina: 0, knock: 5, step: 5.5, poiseMul: 2 } },
-  unsheathe:     { name: 'Unsheathe', desc: 'Hold the stance, then cut in a single flash.', fp: 20, cooldown: 9,
+  unsheathe:     { name: 'Unsheathe', desc: 'Hold the stance, then cut in a single flash.', cooldown: 9,
     def: { clip: 'light2', windup: 0.55, active: 0.12, recover: 0.4, motion: 2.6, arcFrom: 90, arcTo: -90, stamina: 0, knock: 5, step: 2.4, poiseMul: 2.6 } },
-  whirlwind:     { name: 'Spinning Slash', desc: 'Whirl the polearm through everything around you.', fp: 24, cooldown: 11,
+  whirlwind:     { name: 'Spinning Slash', desc: 'Whirl the polearm through everything around you.', cooldown: 11,
     def: { clip: 'spin', windup: 0.3, active: 0.55, recover: 0.45, motion: 1.5, arcFrom: -180, arcTo: 180, stamina: 0, knock: 4.5, step: 2.2, poiseMul: 1.8, spin: Math.PI * 2 } },
-  warCry:        { name: 'War Cry', desc: 'A roar that staggers whatever stands near and hardens your blows for a while.', fp: 20, cooldown: 16,
+  warCry:        { name: 'War Cry', desc: 'A roar that staggers whatever stands near and hardens your blows for a while.', cooldown: 16,
     def: { clip: 'roar', windup: 0.3, active: 0.16, recover: 0.5, motion: 0.5, arcFrom: -180, arcTo: 180, stamina: 0, knock: 6, step: 0, poiseMul: 3, radial: true, reachOverride: 4.2, burst: true, buff: { mul: 1.25, dur: 14 } } },
-  shadowStep:    { name: 'Shadow Step', desc: 'Blink through danger and rip out the other side.', fp: 16, cooldown: 7,
+  shadowStep:    { name: 'Shadow Step', desc: 'Blink through danger and rip out the other side.', cooldown: 7,
     def: { clip: 'light3', windup: 0.06, active: 0.26, recover: 0.36, motion: 2.2, arcFrom: -50, arcTo: 50, stamina: 0, knock: 3.5, step: 5.2, poiseMul: 1.6, iframes: 0.4 } },
-  glintstoneArc: { name: 'Glintstone Arc', desc: 'Hurl a fan of three glintstone shards.', fp: 26, cooldown: 8,
+  glintstoneArc: { name: 'Glintstone Arc', desc: 'Hurl a fan of three glintstone shards.', cooldown: 8,
     def: { clip: 'cast', windup: 0.3, active: 0.12, recover: 0.46, motion: 1.3, arcFrom: 0, arcTo: 0, stamina: 0, knock: 2.2, step: 0, ranged: { kind: 'glintstone', speed: 34, life: 2.0, count: 3, spread: 0.32 } } },
-  barrage:       { name: 'Barrage', desc: 'Loose a spread of five arrows at once.', fp: 22, cooldown: 9,
+  barrage:       { name: 'Barrage', desc: 'Loose a spread of five arrows at once.', cooldown: 9,
     def: { clip: 'bow', windup: 0.3, active: 0.1, recover: 0.42, motion: 1.1, arcFrom: 0, arcTo: 0, stamina: 0, knock: 2.5, step: 0, ranged: { kind: 'arrow', speed: 50, life: 1.6, count: 5, spread: 0.2 } } },
 };
 

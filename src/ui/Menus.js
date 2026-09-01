@@ -7,6 +7,7 @@ import { UI, FONT, TEXT_SHADOW, BASE_CSS, alpha } from './Theme.js';
 import { weaponSvg, WEAPON_GLYPH } from './HUD.js';
 import { RARITIES } from '../run/Loot.js';
 import { SKILLS, WEAPON_SKILLS } from '../combat/Weapons.js';
+import { CAM_DISTANCES } from '../entity/Camera.js';
 
 const hex = (n) => '#' + (n >>> 0).toString(16).padStart(6, '0');
 
@@ -156,7 +157,7 @@ export class Menus {
           <div><div class="nm">${w.name}${eq ? '<span class="held">HELD</span>' : ''}</div>
           <div class="rar" style="color:${hex(R.color)}">${R.label}</div>
           <div class="st">Attack <b>${w.dmg}</b> · Reach <b>${w.reach.toFixed(1)} m</b> · Poise <b>${w.poiseDmg}</b></div>
-          <div class="sk"><b>${sk.name}</b> — ${sk.desc} <span class="fp">${sk.fp} FP · ${sk.cooldown} s</span></div></div>
+          <div class="sk"><b>${sk.name}</b> — ${sk.desc} <span class="fp">${sk.cooldown} s cooldown</span></div></div>
           <div class="acts"><button class="m-btn" data-eq="${i}" ${eq ? 'disabled' : ''}>Equip</button><button class="m-btn" data-drop="${i}" ${inv.count < 2 ? 'disabled' : ''}>Discard</button></div>
         </div>`;
       }).join('');
@@ -229,6 +230,7 @@ export class Menus {
       <div class="m-panel"><div class="m-h1">PAUSED</div><div class="m-h2">Expedition · Day ${this.game.run ? this.game.run.day : 1}</div>
       <button class="m-btn" id="m-resume">Resume</button>
       <div class="m-quality"><span class="m-row" style="padding:8px 10px">Quality</span><button class="m-btn" data-q="high">High</button><button class="m-btn" data-q="low">Low</button></div>
+      <div class="m-quality"><span class="m-row" style="padding:8px 10px">Camera</span><button class="m-btn" data-cam="close">Close</button><button class="m-btn" data-cam="default">Default</button><button class="m-btn" data-cam="far">Far</button></div>
       <div class="m-line"></div>
       <button class="m-btn" id="m-abandon">Abandon Expedition</button>
       <div class="m-small">Esc to resume</div></div>`);
@@ -238,6 +240,10 @@ export class Menus {
     const mark = () => qb.forEach((b) => b.classList.toggle('sel', b.dataset.q === this.game.quality));
     qb.forEach((b) => b.addEventListener('click', () => { this.game.setQuality(b.dataset.q); mark(); }));
     mark();
+    const cam = this.game.cameraCtl, cb = s.querySelectorAll('[data-cam]');
+    const markCam = () => cb.forEach((b) => b.classList.toggle('sel', Math.abs(CAM_DISTANCES[b.dataset.cam] - cam.baseDist) < 0.01));
+    cb.forEach((b) => b.addEventListener('click', () => { cam.setDistance(CAM_DISTANCES[b.dataset.cam]); markCam(); }));
+    markCam();
   }
 
   /** Level cost curve. */
