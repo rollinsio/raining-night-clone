@@ -24,6 +24,7 @@ export class CameraController {
     this.lockTarget = null;
     this.smoothPivot = new THREE.Vector3(); this.pos = new THREE.Vector3();
     this.initialized = false;
+    this.distK = 1; // smoothed terrain pull-in fraction of the orbit distance
     this.shake = 0; this.shakeSeed = 0;
     this.lunge = 0; this.lungeT = 0; // contact lunge: a short push toward the pivot that springs back (addLunge)
     this.orbitCenter = new THREE.Vector3(); this.orbitR = 16; this.orbitT = 0;
@@ -85,14 +86,19 @@ export class CameraController {
 
     const cp = Math.cos(this.pitch);
     _desired.set(this.smoothPivot.x + Math.sin(this.yaw) * cp * this.dist, this.smoothPivot.y + Math.sin(this.pitch) * this.dist, this.smoothPivot.z + Math.cos(this.yaw) * cp * this.dist);
-    // terrain collision: march from the pivot outwards and stop before the ground
+    // terrain collision: march from the pivot outwards, then bisect the blocked interval so the pull-in distance is
+    // continuous (the old tenth-steps popped the camera as a hillside slid under it); pulls in fast, lets out slowly
+    const clear = (s) => { _v.lerpVectors(this.smoothPivot, _desired, s); return _v.y >= T.getHeight(_v.x, _v.z) + 0.6; };
     let k = 1;
     for (let i = 1; i <= 10; i++) {
-      const s = i / 10;
-      _v.lerpVectors(this.smoothPivot, _desired, s);
-      if (_v.y < T.getHeight(_v.x, _v.z) + 0.6) { k = Math.max(0.18, (i - 1) / 10); break; }
+      if (clear(i / 10)) continue;
+      let lo = (i - 1) / 10, hi = i / 10;
+      for (let b = 0; b < 5; b++) { const m = (lo + hi) * 0.5; if (clear(m)) lo = m; else hi = m; }
+      k = Math.max(0.18, lo); break;
     }
-    _v.lerpVectors(this.smoothPivot, _desired, k);
+    if (!this.initialized) this.distK = k;
+    else this.distK += (k - this.distK) * (1 - Math.exp(-(k < this.distK ? 30 : 4) * dt));
+    _v.lerpVectors(this.smoothPivot, _desired, Math.min(this.distK, k));
     const hh = T.getHeight(_v.x, _v.z) + 0.5;
     if (_v.y < hh) _v.y = hh;
     if (!this.initialized) { this.pos.copy(_v); this.initialized = true; }

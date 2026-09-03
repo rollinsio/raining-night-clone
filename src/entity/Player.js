@@ -174,7 +174,10 @@ export class Player extends Entity {
     if (wantSprint && this.inCombat()) { this.stamina -= 11 * dt; this.staminaDelay = 0.5; } // Nightreign: sprinting is free out of combat
     if (this.lockTarget && !wantSprint) this.faceToward(this.lockTarget.pos.x, this.lockTarget.pos.z, dt, 14);
     else if (len > 0.001) this.faceToward(this.pos.x + move.x, this.pos.z + move.z, dt, 13);
-    if (this.speed > 0.4) { anim.play('run'); anim.ctx.speed = clamp((this.speed - 3) / (SPRINT - 3), 0, 1); anim.ctx.mps = this.speed; this.state = 'move'; }
+    // the gait follows the speed physics actually delivered (a climb slows the legs with the body; a wall stops
+    // them) and plays exactly after a short crossfade so the stride is not smeared by the pose low-pass
+    const moving = this.speed > 0.4 && (this.groundSpeed > 0.4 || !this.blocked);
+    if (moving) { anim.play('run', { blend: 0.12 }); anim.ctx.speed = clamp((this.speed - 3) / (SPRINT - 3), 0, 1); anim.ctx.mps = Math.max(0.6, this.groundSpeed); anim.ctx.slope = this.slope; this.state = 'move'; }
     else { anim.play('idle'); this.state = 'idle'; }
     // actions
     if (this.bufferAction === 'flask') { this.takeBuffer('flask'); this.drinkFlask(); return; }
@@ -256,7 +259,7 @@ export class Player extends Entity {
     if (this.onGround && this.stateT > 0.08) { // landed (applyPhysics grounded us last step)
       this.speed = Math.hypot(this.vel.x, this.vel.z);
       this.setState('idle');
-      this.anim.play(this.speed > 0.4 ? 'run' : 'idle');
+      this.anim.play(this.speed > 0.4 ? 'run' : 'idle', { blend: 0.1 });
     }
   }
 

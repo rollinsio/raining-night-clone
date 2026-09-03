@@ -282,6 +282,7 @@ export class Animator {
   set(name, rx, ry, rz) { const i = this.idx[name]; if (i === undefined) return; this.tgt[i * 3] = rx; this.tgt[i * 3 + 1] = ry; this.tgt[i * 3 + 2] = rz; }
   add(name, rx, ry, rz) { const i = this.idx[name]; if (i === undefined) return; this.tgt[i * 3] += rx; this.tgt[i * 3 + 1] += ry; this.tgt[i * 3 + 2] += rz; }
   extra(k, v) { this.tgt[this.n * 3 + k] = v; }
+  addExtra(k, v) { this.tgt[this.n * 3 + k] += v; }
   twist(name, v) { const i = this.idx[name]; if (i === undefined) return; this.tgt[this.n * 3 + 4 + i] = v; }
 
   /**
@@ -348,21 +349,107 @@ function stance(P, dip = -0.05) {
 }
 
 /**
- * Run cycle timing. The `character` screenshot pose plays the clip at HERO_SPEED and settles it for 40 steps
- * (t = 0.667 s); RUN_PH0 is chosen so that moment lands on the hero frame — left knee driving up with the shin
- * folded, right leg (camera side) extended behind at toe-off, free arm pumped back, sword arm forward with the
- * blade pointing ahead and down.
+ * Gait timing. One clip covers the walk (≤ ~2 m/s: patrols, a half-pushed stick), the jog and the sprint; the walk
+ * and run poses blend by ground speed (gaitMix) so an enemy easing from patrol into a chase never pops. Cadence
+ * (cycles/s) follows the body's *measured* speed — ctx.mps, written by Player / Enemy from the displacement physics
+ * produced — so the planted foot carries the body its full stride instead of gliding, and a climb that slows the
+ * body slows the legs with it. Cycle length (two steps): ~1.6 m at a 2.2 m/s walk, 2.9 m at a 5.8 m/s run, 3.7 m at
+ * a 9.3 m/s sprint (the old 2.5 m cycle scurried; the stride geometry in RUN_G / WALK_G is derived from these). Without ctx.mps (screenshot poses) the
+ * speed is inferred from ctx.speed. The phase is integrated per step (ctx.gaitPh) so a cadence change turns the
+ * legs faster from where they are rather than jumping them to a new phase.
  */
+const WALK_HI = 3.0, WALK_LO = 1.8;                        // m/s: pure walk below WALK_LO, pure run above WALK_HI
+const gaitMix = (mps) => sm((mps - WALK_LO) / (WALK_HI - WALK_LO));
+const walkCycleLen = (mps) => 0.9 + 0.3 * mps;
+const runCycleLen = (mps) => 2.9 + 0.22 * (mps - 5.8);
+const gaitCycleLen = (mps) => { const w = gaitMix(mps); return walkCycleLen(mps) * (1 - w) + runCycleLen(mps) * w; };
+const speedToMps = (sp, mps) => mps ?? 3 + 6.3 * sp;
+const runCadence = (sp, mps) => { const v = speedToMps(sp, mps); return v / gaitCycleLen(v); };
+/** Advance the integrated gait phase for this clip evaluation (t resets to 0 on play/restart). */
+function gaitPhase(t, ctx, cadence) {
+  if (ctx.gaitT === undefined || t < ctx.gaitT) { ctx.gaitPh = RUN_PH0; ctx.gaitT = 0; }
+  ctx.gaitPh += (t - ctx.gaitT) * TAU * cadence; ctx.gaitT = t;
+  return ctx.gaitPh;
+}
 /**
- * Cadence (cycles/s) follows the body's actual speed so the planted foot carries the body its full stride instead of
- * gliding: ctx.mps (metres/s, written by Player / Enemy while moving) over the cycle length — 2.2 m at a jog rising
- * to 3.0 m at a sprint (two steps per cycle). Without ctx.mps (screenshot poses) the speed is inferred from ctx.speed.
+ * The `character` screenshot pose plays the clip at HERO_SPEED and settles it for 40 steps (t = 0.667 s); RUN_PH0
+ * is chosen so that moment lands on the hero frame — left knee driving up with the foot tucked, right leg (camera
+ * side) extended behind with the heel kicking up off the toe, free arm pumped back, sword arm forward.
  */
-const runCycleLen = (sp) => 2.2 + sp * 0.8;
-const runCadence = (sp, mps) => (mps ?? 3 + 6.3 * sp) / runCycleLen(sp);
 export const HERO_SPEED = 0.85;
-const HERO_PH = 1.0; // phase of the LEFT leg at the hero frame (right leg is PI ahead)
+const HERO_PH = 0.7; // phase of the LEFT leg at the hero frame (right leg is PI ahead)
 const RUN_PH0 = HERO_PH - (40 / 60) * TAU * runCadence(HERO_SPEED);
+
+// ---- gait geometry (see HUMANOID_CLIPS.run). Legs are foot-driven: a 2-bone IK in the sagittal plane.
+const L1 = 0.44, L2 = 0.4, LEG = L1 + L2, HIP_H = 0.92, ANKLE_H = 0.08; // createHumanoid: hip joint / ankle rest heights, thigh / shin lengths
+const clampN = (x, a, b) => (x < a ? a : x > b ? b : x);
+const _rg = { land: 2.1, sf: 0, Sf: 0, Sb: 0, lift: 0, toe: 0, H: 0, mid: 0 };
+const _wg = { land: 1.9, sf: 0, Sf: 0, Sb: 0, lift: 0, toe: 0, H: 0, mid: 0 };
+const _fa = { z: 0, y: 0, toe: 0, plant: 0, flat: 0 }, _fb = { z: 0, y: 0, toe: 0, plant: 0, flat: 0 };
+const _legL = { z: 0, y: 0, toe: 0, plant: 0, flat: 0, hip: 0, knee: 0, ankle: 0 }, _legR = { z: 0, y: 0, toe: 0, plant: 0, flat: 0, hip: 0, knee: 0, ankle: 0 };
+/**
+ * Run stride geometry at a ground speed: land phase, stance fraction of the cycle (shorter the faster), the
+ * foot's reach ahead of / behind the hip through stance (their sum = stance fraction × cycle length, so the
+ * planted foot moves back under the body at exactly the body's speed), the heel lift onto the toe at push-off,
+ * the toe-down angle that goes with it, and the swing's peak heel height.
+ */
+function RUN_G(mps) {
+  const g = _rg, len = runCycleLen(mps);
+  g.sf = clampN(0.3 - 0.035 * (mps - 5.8), 0.2, 0.42);
+  const travel = g.sf * len; g.Sf = 0.33 * travel; g.Sb = 0.67 * travel;
+  g.lift = clampN(0.1 + 0.02 * (mps - 5.8), 0.06, 0.16); g.toe = 4 * g.lift;
+  g.H = clampN(0.15 + 0.05 * (mps - 5.8), 0.08, 0.32);
+  g.mid = g.land + Math.PI * g.sf;
+  return g;
+}
+/** Walk stride geometry: long double-support stance, heel-to-toe roll, a low swing. */
+function WALK_G(mps) {
+  const g = _wg, len = walkCycleLen(mps);
+  g.sf = 0.55;
+  const travel = g.sf * len; g.Sf = 0.33 * travel; g.Sb = 0.67 * travel;
+  g.lift = 0.12; g.toe = 0.45; g.H = 0.08 + 0.02 * mps;
+  g.mid = g.land + Math.PI * g.sf;
+  return g;
+}
+/**
+ * One gait's ankle target (z ahead of the hip, y above the ground) at leg phase p, with the foot's pitch over the
+ * ground (toe: + toes down), how firmly it is planted (plant: the pelvis must stay low enough to reach it) and
+ * how much it follows the ground rather than the shin (flat).
+ */
+function gaitFoot(g, p, out) {
+  const q = ((p - g.land) % TAU + TAU) % TAU, st = TAU * g.sf, D = g.Sf + g.Sb;
+  if (q < st) { // stance: heel strike, back under the body at ground speed, heel rising onto the toe through the last 40 %
+    const u = q / st, k = sm((u - 0.6) / 0.4);
+    out.z = g.Sf - u * D; out.y = ANKLE_H + g.lift * k;
+    out.toe = g.toe * k - 0.25 * (1 - sm(u / 0.12)); out.plant = 1 - sm((u - 0.5) / 0.5); out.flat = 1;
+  } else { // swing: an eased sweep forward, plus a heel kick that carries on backward off the toe and a paw back into the landing (each an end tangent that dies quickly)
+    const u = (q - st) / (TAU - st), r = 1 - u;
+    const m = Math.min(1.2 * D, 0.6 * D * (TAU - st) / st); // ~ the stance foot's speed over the hip in swing-u units, capped for a sprint's short stance
+    out.z = -g.Sb + D * sm(u) - 0.8 * m * u * Math.pow(r, 6) - m * Math.pow(u, 6) * r;
+    out.y = ANKLE_H + g.lift * (1 - sm(u / 0.5)) + g.H * Math.sin(Math.PI * Math.pow(u, 0.7)); // peaks early, comes down steeply
+    out.toe = g.toe * (1 - sm(u / 0.4)) - 0.25 * sm((u - 0.2) / 0.5);
+    out.plant = sm((u - 0.7) / 0.3); out.flat = 1 - sm(u / 0.3) + out.plant; // the pelvis settles for the landing through the last third
+  }
+}
+/** Blend the run and walk foot targets for a leg at phase p (weights w / v) into out. */
+function footTarget(rg, w, wg, v, p, out) {
+  gaitFoot(rg, p, _fa); gaitFoot(wg, p, _fb);
+  out.z = _fa.z * w + _fb.z * v; out.y = _fa.y * w + _fb.y * v; out.toe = _fa.toe * w + _fb.toe * v;
+  out.plant = _fa.plant * w + _fb.plant * v; out.flat = _fa.flat * w + _fb.flat * v;
+}
+/** Highest pelvis offset at which a planted foot is still reachable with a straight leg (relaxed as it lifts off). */
+function reachHips(leg) {
+  if (leg.plant < 0.01) return Infinity;
+  const r = LEG * 0.995, dz = Math.min(r, Math.abs(leg.z));
+  return leg.y + Math.sqrt(r * r - dz * dz) - HIP_H + 0.1 * (1 - leg.plant);
+}
+/** 2-bone leg IK: ankle target (dz ahead, dy up — negative) relative to the hip joint → hip / knee pitch. */
+function legIK(dz, dy, out) {
+  let d = Math.hypot(dz, dy); if (d > LEG * 0.995) d = LEG * 0.995; if (d < 0.05) d = 0.05;
+  const alpha = Math.acos(clampN((L1 * L1 + L2 * L2 - d * d) / (2 * L1 * L2), -1, 1)); // interior knee angle
+  const beta = Math.acos(clampN((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d), -1, 1));   // thigh vs hip->foot line
+  out.hip = Math.atan2(-dz, -dy) - beta; out.knee = Math.PI - alpha;
+}
 
 
 // -------------------------------------------------------------------------------------------------
@@ -521,41 +608,76 @@ export const HUMANOID_CLIPS = {
     P.extra(E_HIPSY, 0.01 * b);
   },
   /**
-   * Run / sprint (ctx.speed 0..1). Gait per leg (phase p, left leg uses ph, right ph + PI):
-   * thigh reaches forward at p = PI/2, plants ~2.2, drives back through stance, toes off ~4.6; the knee folds
-   * hard through swing (peak 0.7), straightens to land, softens at mid-stance. Arms counter-swing with bent
-   * elbows; the sword wrist keeps the blade low. Whole body leans from the hips; hips counter-rotate the chest.
+   * Locomotion: walk / run / sprint in one clip, blended by ground speed (see gaitMix). Each leg is driven by its
+   * foot: during stance the ankle target moves back under the hip at the body's speed (so the planted foot does
+   * not slide by construction), lifting onto the toe for the push-off; through swing it arcs up (heel toward the
+   * seat at a sprint) and forward to the next landing. legIK turns the target into hip / knee angles, the ankle
+   * keeps the foot flat on the ground and toes down for the push-off, and the pelvis rides a designed bob (down
+   * onto each mid-stance, up through the flight phase) lowered wherever a straight leg could not otherwise reach
+   * its foot — so a long stride sinks the hips instead of floating the feet. Per leg phase p: the left leg uses
+   * ph, the right ph + PI; the run lands at p = 2.1 and toes off ~4.2, the walk lands at 1.9 and toes off ~5.4.
+   * ctx.slope (rise over run along the heading, + uphill, written by Player / Enemy) leans the body into a climb
+   * and sits it back on a descent. ctx.speed (0..1 sprint intensity) scales lean and arm drive.
    */
   run(t, P, ctx) {
-    const sp = clamp01(ctx.speed);
-    const ph = t * TAU * runCadence(sp, ctx.mps) + RUN_PH0;
+    const sp = clamp01(ctx.speed), mps = speedToMps(sp, ctx.mps);
+    const ph = gaitPhase(t, ctx, runCadence(sp, ctx.mps));
     const s = Math.sin(ph), c = Math.cos(ph);
-    const leg = 1 + sp * 0.25, arm = 1 + sp * 0.35, lean = 0.2 + sp * 0.16;
-    // per-leg phase p: thigh peaks forward at PI/2, plants ~2.3, drives back through stance, toes off ~4.6.
-    // Thigh swing sized so the ankle's stance travel matches the stride (runCycleLen / 2).
-    const swing = 0.72 + sp * 0.4;
-    const thigh = (ss) => -0.28 * leg - swing * ss;
-    const knee = (p) => 0.14 + 1.55 * leg * Math.pow(Math.max(0, Math.sin(p + 0.9)), 2.4) + 0.4 * Math.pow(Math.max(0, Math.sin(p - 2.0)), 2);
-    const toe = (ss) => 0.22 * Math.pow(Math.max(0, -ss), 1.4) - 0.2 * Math.max(0, ss); // toe skims the ground at toe-off, heel leads on landing
-    // the swinging knee drifts a little outward so it clears the body silhouette
-    P.set('hipL', thigh(s), 0.05 * s, 0.05 + 0.1 * Math.max(0, s)); P.set('hipR', thigh(-s), 0.05 * s, -0.05 - 0.1 * Math.max(0, -s));
-    P.set('kneeL', knee(ph), 0, 0); P.set('kneeR', knee(ph + Math.PI), 0, 0);
-    P.set('ankleL', toe(s), 0, 0); P.set('ankleR', toe(-s), 0, 0);
-    // free (left) arm pumps with a folded elbow; the weapon (right) arm swings less with the forearm carried
-    // level so the blade rides forward-and-up, clear of the ground and the legs, bobbing with the stride
-    P.set('shoulderL', -0.35 + 0.7 * arm * s, 0.14, 0.28 + 0.1 * Math.max(0, -s));
-    P.set('elbowL', -1.0 - 0.5 * arm * Math.max(0, -s), 0, 0);
+    const w = gaitMix(mps), v = 1 - w, slope = ctx.slope || 0;
+    const down = Math.max(0, -slope), up = Math.max(0, slope);
+    const lean = 0.2 + 0.16 * sp, arm = 1 + sp * 0.35;
+    // gait geometry for this speed (run / walk), see runCycleLen / walkCycleLen for the cadence side
+    const rs = RUN_G(mps), ws = WALK_G(mps);
+    // pelvis design: the run drops onto each mid-stance and rises through flight; the walk vaults over the stance leg
+    const hipsRun = -0.04 - 0.02 * sp - (0.035 + 0.025 * sp) * Math.cos(2 * (ph - rs.mid)) - 0.05 * up - 0.06 * down;
+    const hipsWalk = -0.03 + 0.02 * Math.cos(2 * (ph - ws.mid)) - 0.05 * up - 0.06 * down;
+    let hipsY = hipsRun * w + hipsWalk * v;
+    // whole-body lean: forward with speed, into a climb, back on a descent (the legs below are solved in the
+    // leaned frame so the feet still land on the ground)
+    const tilt = Math.atan(slope);
+    const pitch = w * (0.08 + 0.1 * sp) + v * 0.03 + Math.min(0.28, Math.max(-0.22, 0.5 * tilt));
+    const cp = Math.cos(pitch), sp2 = Math.sin(pitch);
+    // legs: foot targets first (the pelvis may need to drop for them), then IK
+    const L = _legL, R = _legR;
+    footTarget(rs, w, ws, v, ph, L); footTarget(rs, w, ws, v, ph + Math.PI, R);
+    L.y += L.z * slope; R.y += R.z * slope; // the ground rises ahead on a climb
+    hipsY = Math.min(hipsY, reachHips(L), reachHips(R));
+    const hipH = HIP_H + hipsY;
+    for (const leg of [L, R]) {
+      const dy = leg.y - hipH;
+      legIK(leg.z * cp - dy * sp2, leg.z * sp2 + dy * cp, leg);
+      const shinW = pitch + leg.hip + leg.knee; // shin pitch in the world
+      // the foot sits on the ground (flat, or on its toe for the push-off) while planted, hangs from the shin toes-up through swing
+      leg.ankle = -shinW * (0.35 + 0.65 * leg.flat) + leg.toe - tilt * leg.flat;
+    }
+    // pelvis roll / yaw with the stride (small: the legs hang off the pelvis, so any of it sweeps the planted foot
+    // sideways); the legs counter the roll, and the swinging knee drifts a little outward
+    const roll = 0.05 * s * w + 0.03 * s * v, yaw = 0.06 * s * w + 0.05 * s * v;
+    P.set('hipL', L.hip, 0, 0.04 + 0.08 * (1 - L.flat) - roll); P.set('kneeL', L.knee, 0, 0); P.set('ankleL', L.ankle, 0, 0);
+    P.set('hipR', R.hip, 0, -0.04 - 0.08 * (1 - R.flat) - roll); P.set('kneeR', R.knee, 0, 0); P.set('ankleR', R.ankle, 0, 0);
+    // ---- run upper body (weight w): free (left) arm pumps with a folded elbow; the weapon (right) arm swings less
+    // with the forearm carried level so the blade rides forward-and-up, clear of the ground and the legs
+    const G = (k, name, rx, ry, rz) => { if (k > 0.001) P.add(name, rx * k, ry * k, rz * k); };
+    G(w, 'shoulderL', -0.4 + 0.75 * arm * s, 0.14, 0.28 + 0.1 * Math.max(0, -s));
+    G(w, 'elbowL', -1.1 - 0.5 * arm * Math.max(0, -s), 0, 0);
     const shR = -0.35 - 0.25 * arm * s, elR = -0.6 - 0.25 * Math.max(0, s);
     // net hand pitch in the chest frame; the spine + chest + pivot lean (~0.6 rad at a sprint) pitches it back to
     // ~20° above horizontal in world space, tip ahead at shoulder height
     const wantBlade = -2.2 + 0.1 * s;
-    P.set('shoulderR', shR, -0.18, -0.3); P.set('elbowR', elR, 0, 0);
-    P.set('wristR', Math.min(0.9, Math.max(-1.0, wantBlade - (shR + elR))), 0, 0);
-    // lean lives mostly in the spine (legs stay under the body); pelvis rolls and yaws with the stride, chest counter-rotates, head stays level
-    P.set('hips', 0, 0.14 * s, 0.06 * s); P.set('spine', lean * 0.75, -0.12 * s, -0.04 * s); P.set('chest', lean * 0.55, -0.14 * s, 0);
-    P.set('neck', -lean * 0.4, 0.05 * s, 0); P.set('head', -lean * 0.6, 0.07 * s, -0.02 * c);
-    P.extra(E_HIPSY, 0.035 * Math.sin(2 * ph - 2.43) - 0.03 - 0.015 * sp);
-    P.extra(E_PITCH, 0.08 + 0.1 * sp);
+    G(w, 'shoulderR', shR, -0.18, -0.3); G(w, 'elbowR', elR, 0, 0);
+    G(w, 'wristR', Math.min(0.9, Math.max(-1.0, wantBlade - (shR + elR))), 0, 0);
+    // lean lives mostly in the spine (legs stay under the body); the chest counter-rotates the pelvis, the head stays level
+    G(w, 'hips', 0, yaw, roll); G(w, 'spine', lean * 0.75, -0.1 * s, -0.04 * s); G(w, 'chest', lean * 0.55, -0.12 * s, 0);
+    G(w, 'neck', -lean * 0.4, 0.05 * s, 0); G(w, 'head', -lean * 0.6, 0.07 * s, -0.02 * c);
+    // ---- walk upper body (weight 1 - w): upright, easy arm swing, the sword carried low as in idle
+    G(v, 'shoulderL', -0.1 + 0.35 * s, 0.05, 0.18); G(v, 'elbowL', -0.35 - 0.2 * Math.max(0, -s), 0, 0);
+    G(v, 'shoulderR', -0.15 - 0.2 * s, 0, -0.16); G(v, 'elbowR', -0.7, 0, 0); G(v, 'wristR', -0.1, 0, 0);
+    G(v, 'hips', 0, yaw, roll); G(v, 'spine', 0.04, -0.06 * s, -0.02 * s); G(v, 'chest', 0.02, -0.08 * s, 0);
+    G(v, 'head', 0.03, 0.04 * s, 0);
+    // ---- terrain: the spine leans into a climb and sits back on a descent, the head stays level
+    P.add('spine', 0.25 * tilt, 0, 0); P.add('head', -0.3 * tilt, 0, 0);
+    P.extra(E_HIPSY, hipsY);
+    P.extra(E_PITCH, pitch);
   },
   roll(t, P, ctx) {
     const k = clamp01(t / ctx.dur);
