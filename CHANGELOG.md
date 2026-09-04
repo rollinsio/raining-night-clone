@@ -3,6 +3,38 @@
 One line per module: what exists, and any known stubs. Folder ownership per ARCHITECTURE.md; the
 skeleton build touched every folder once — later builders own their folders from here.
 
+## Locomotion: foot-driven gait, terrain-aware running, no more uphill stutter (2026-09-03)
+
+The walk and run were rebuilt from the feet up, and the physics / camera that made climbing hills stutter were
+smoothed out.
+
+- `entity/Humanoid.js` — `run` clip is one walk / jog / sprint clip blended by measured ground speed (`gaitMix`).
+  Each leg is driven by its foot: `RUN_G` / `WALK_G` derive a stride (reach ahead / behind the hip, heel lift, swing
+  height) from the cycle length so the planted foot moves back under the body at exactly the body's speed
+  (`gaitFoot` / `footTarget`), `legIK` (2-bone sagittal) turns the ankle target into hip / knee angles, the ankle
+  keeps the foot flat on the ground through stance, on its toe for the push-off and heel-first into the landing,
+  and the pelvis rides a designed bob lowered wherever a straight leg could not reach its foot (`reachHips`) — a
+  long stride sinks the hips instead of floating the feet. Cadence follows `ctx.mps` (measured m/s) with the
+  phase integrated per step (`gaitPhase`) so speed changes never pop the legs. Pelvis roll / yaw are small and the
+  legs counter the roll (both used to sweep the planted foot sideways). `ctx.slope` leans the body into a climb
+  (`E_PITCH`, spine), sits it back on a descent, raises the front foot's ground target and pitches the feet to the
+  hill. Legs are solved in the leaned frame so the feet still land on the ground. `Animator.addExtra`.
+  `HERO_PH` re-picked for the new stride (the `character` shot: front knee driving, rear heel kicking up).
+- `entity/Entity.js` — `applyPhysics` measures `groundSpeed` and `slope` (stride-scale sample along the heading,
+  smoothed) for the animation; the climb limit is a smooth easing (`CLIMB_EASE` 0.5 → `MAX_CLIMB` 1.0, the uphill
+  component of the move scaled by a quadratic) instead of a per-frame on/off wall on bilinear cells, with a
+  `HARD_CLIMB` safety; grounded entities snap down to ground within `STEP_DOWN` 0.45 m so a fast descent no longer
+  hops. `teleport` resets the measurements.
+- `entity/Player.js` / `entity/Enemy.js` — feed `ctx.mps` / `ctx.slope` to the gait; the run plays exactly
+  (`blend`) instead of through the pose low-pass that smeared it; the player stops running in place against a wall
+  (`groundSpeed` gate, `blocked`).
+- `entity/Camera.js` — terrain collision bisects to the exact clear distance and eases (`distK`: snaps in, relaxes
+  out) instead of stepping through ten quantised lerp fractions, which visibly juddered on hillsides.
+- `tools/motion.mjs` — `stroll` action (a third of the stick: the walk gait); the capture spot moved to a clear,
+  flat run-up (the old one hit a prop 6 m in); stance is judged within 2 cm of the foot's lowest height so a 30 fps
+  frame straddling the landing does not count as slide. walk / run / stroll all pass the slide check (≤ 14 % of body
+  speed in stance; 63 % before).
+
 ## Punchlist: ranged feel, skill cooldowns, night pace, hit lock-on, camera distance (2026-09-01)
 
 - `entity/Player.js` — `fireRanged`: unlocked shots follow the camera's pitch (plus a hair of arc against arrow drop) instead of flying level into the nearest up-slope, and the soft aim assist widened (±0.35 rad, 48 m); weapon skills are gated by cooldown alone — no FP cost (`updateLocomotion` skill branch; the ultimate and staff heavy casts still spend FP); `lockOnAttacker`: a hit taken while unlocked snaps the lock onto the attacker (alive, hostile, ≤ 32 m) from both `onHurt` and `onStagger` (which now also sets `combatT`).

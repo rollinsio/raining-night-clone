@@ -10,7 +10,11 @@ const _fwd = new THREE.Vector3();
 const _n = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 const GRAVITY = 24;
-const MAX_CLIMB = 0.9; // steepest walkable rise over run (~42 deg); steeper heightfield is a wall
+const MAX_CLIMB = 1.0;   // rise over run (45 deg) at which a climb eases to a standstill
+const CLIMB_EASE = 0.5;  // rise over run (~27 deg) up to which a hill costs no speed
+const HARD_CLIMB = 1.15; // a single step rising steeper than this is a wall whatever the stride-scale slope says
+const STRIDE = 0.8;      // metres ahead the slope under the heading is sampled over (a stride, not a frame's step)
+const STEP_DOWN = 0.45;  // a grounded body follows the ground down this far per step instead of hopping off crests
 
 export class Entity {
   constructor(game, { name = 'entity', team = 'enemy', hp = 100, stamina = 100, poise = 30, radius = 0.45, height = 1.8 } = {}) {
@@ -29,6 +33,8 @@ export class Entity {
     this.scale = 1;
     this.alive = true; this.remove = false; this.frozen = false;
     this.onGround = false;
+    this.groundSpeed = 0; // measured horizontal speed (m/s, smoothed) — what the legs should actually be covering
+    this.slope = 0;       // rise over run under the heading (+ uphill, smoothed) for the gait's lean
     this.iframes = 0; this.staggerT = 0; this.poiseRegenT = 0;
     this.flash = 0; this.flashColor = new THREE.Color(0xffffff);
     this.glow = 0; this.glowColor = new THREE.Color(0xff8030);
@@ -76,12 +82,17 @@ export class Entity {
 
   /**
    * Gravity + terrain collision + static solids + map bounds. Knockback decays here.
-   * Slopes steeper than MAX_CLIMB (rise over run) cannot be climbed: the uphill part of the step is dropped so the
-   * body slides along the contour, and if even that climbs too steeply the horizontal step is cancelled. Descents
-   * are never blocked, so nothing can be trapped on a hillside.
+   * Hills: the slope under the heading is sampled a stride ahead (so the heightfield's cell edges do not flicker
+   * it). Up to CLIMB_EASE it costs nothing; from there the uphill part of the step eases smoothly to nothing at
+   * MAX_CLIMB, the along-contour part is kept, so a body slows into a steep face and slides along it instead of
+   * hitting the old on/off wall. A single step rising steeper than HARD_CLIMB is still refused outright (a cliff
+   * inside the stride sample). Descents are never blocked, and a grounded body is kept on the ground over crests
+   * and down slopes (STEP_DOWN) rather than lofted off them by its own momentum.
+   * Writes groundSpeed / slope (smoothed) for the locomotion clip.
    */
   applyPhysics(dt) {
     const T = this.game.terrain;
+    const wasGround = this.onGround;
     this.vel.y -= GRAVITY * dt;
     const kx = this.knock.x, kz = this.knock.z;
     const x0 = this.pos.x, z0 = this.pos.z;
@@ -90,20 +101,24 @@ export class Entity {
     const kd = Math.exp(-9 * dt);
     this.knock.x *= kd; this.knock.z *= kd;
     const md = Math.hypot(mx, mz);
+    let slope = 0;
+    this.blocked = false;
     if (md > 1e-5) {
-      const h0 = T.getHeight(x0, z0);
-      if (T.getHeight(x0 + mx, z0 + mz) - h0 > MAX_CLIMB * md) {
-        // too steep: remove the component that climbs the gradient (the terrain normal's XZ points downhill)
+      const h0 = T.getHeight(x0, z0), dx = mx / md, dz = mz / md;
+      slope = (T.getHeight(x0 + dx * STRIDE, z0 + dz * STRIDE) - h0) / STRIDE;
+      if (slope > CLIMB_EASE) {
+        // ease the uphill component out (the terrain normal's XZ points downhill)
+        const t = Math.min(1, (slope - CLIMB_EASE) / (MAX_CLIMB - CLIMB_EASE)), cut = t * t; // gentle at first, a crawl near the limit
         T.getNormal(x0 + mx * 0.5, z0 + mz * 0.5, _n);
         const gl = Math.hypot(_n.x, _n.z);
         if (gl > 1e-5) {
-          const ux = -_n.x / gl, uz = -_n.z / gl, up = mx * ux + mz * uz; // uphill unit vector, uphill component
-          if (up > 0) { mx -= ux * up; mz -= uz * up; }
+          const ux = -_n.x / gl, uz = -_n.z / gl, up = mx * ux + mz * uz;
+          if (up > 0) { mx -= ux * up * cut; mz -= uz * up * cut; }
         }
-        const md2 = Math.hypot(mx, mz);
-        if (md2 < 1e-5 || T.getHeight(x0 + mx, z0 + mz) - h0 > MAX_CLIMB * md2) { mx = 0; mz = 0; }
-        this.blocked = true;
-      } else this.blocked = false;
+        if (cut >= 1) this.blocked = true;
+      }
+      const md2 = Math.hypot(mx, mz);
+      if (md2 > 1e-5 && T.getHeight(x0 + mx, z0 + mz) - h0 > HARD_CLIMB * md2) { mx = 0; mz = 0; this.blocked = true; }
     }
     this.pos.x = x0 + mx; this.pos.z = z0 + mz;
     const lim = T.half - 14;
@@ -119,7 +134,13 @@ export class Entity {
       if (g > h) h = g;
     }
     if (this.pos.y <= h && this.vel.y <= 0) { this.pos.y = h; this.vel.y = 0; this.onGround = true; } // vel.y > 0: rising past a floor lip, do not snap
+    else if (wasGround && this.vel.y <= 0 && this.pos.y - h < STEP_DOWN) { this.pos.y = h; this.vel.y = 0; this.onGround = true; } // follow the ground down
     else this.onGround = this.pos.y - h < 0.05;
+    if (dt > 0) { // measured motion for the gait: displacement physics actually produced, and the slope under it
+      const f = 1 - Math.exp(-24 * dt), fs = 1 - Math.exp(-8 * dt);
+      this.groundSpeed += (Math.hypot(this.pos.x - x0, this.pos.z - z0) / dt - this.groundSpeed) * f;
+      this.slope += (slope - this.slope) * fs;
+    }
     this.object3d.rotation.y = this.yaw;
     this.groundContact();
   }
@@ -185,7 +206,7 @@ export class Entity {
     let y = this.game.terrain.getHeight(x, z);
     if (this.game.colliders) { const g = this.game.colliders.groundAt(x, z, Infinity); if (g > y) y = g; }
     this.pos.set(x, y, z);
-    this.vel.set(0, 0, 0); this.knock.set(0, 0, 0);
+    this.vel.set(0, 0, 0); this.knock.set(0, 0, 0); this.groundSpeed = 0; this.slope = 0;
     this.object3d.rotation.y = this.yaw;
     this.groundContact();
   }

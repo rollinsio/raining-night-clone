@@ -155,7 +155,7 @@ export class Enemy extends Entity {
       case 'patrol': {
         if (this.aggro) { this.setState('alert'); break; }
         const d = this.moveToward(this.dest.x, this.dest.z, this.walkSpeed, dt);
-        anim.play('run'); anim.ctx.speed = 0; anim.ctx.mps = this.walkSpeed;
+        anim.play('run', { blend: 0.15 }); anim.ctx.speed = 0; anim.ctx.mps = Math.max(0.6, this.groundSpeed); anim.ctx.slope = this.slope;
         if (d < 0.8 || this.stateT > 12) { this.waitT = this.rng.range(1.5, 5); this.setState('idle'); }
         break;
       }
@@ -169,7 +169,7 @@ export class Enemy extends Entity {
         this.cooldown -= dt;
         if (dist > this.attackRange * 0.9 + 0.2) {
           this.moveToward(player.pos.x, player.pos.z, this.runSpeed, dt);
-          anim.play('run'); anim.ctx.speed = 0.75; anim.ctx.mps = this.runSpeed;
+          anim.play('run', { blend: 0.15 }); anim.ctx.speed = 0.75; anim.ctx.mps = Math.max(0.6, this.groundSpeed); anim.ctx.slope = this.slope;
         } else {
           if (this.cooldown <= 0) { this.startAttack(this.pickAttack()); break; }
           if (this.considerGuard(player, dist)) { this.setState('guard'); this.guarding = true; anim.play('guard', { restart: true }); break; }

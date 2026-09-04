@@ -14,7 +14,7 @@
  *                                          motion outside the active window, clipping, trail coverage)
  *
  * Usage: node tools/motion.mjs <action> [--views side,front,rear,top] [--step 2] [--dur 1.4] [--nf Wylder] [--name x]
- *   action: light1 | light2 | light3 | heavy | combo (light x3) | skill | roll | run (sprint) | walk | hit | stagger
+ *   action: light1 | light2 | light3 | heavy | combo (light x3) | skill | roll | run (sprint) | walk (5.8 m/s jog) | stroll (walk gait) | hit | stagger
  *           soldier:light | soldier:heavy | soldier:hit | soldier:stagger | knight:light | knight:heavy | wolf:light
  *   --from front|back|left|right   where a hit / stagger lands from (default front)
  * Requires the dev server on :5173 (npx vite --port 5173).
@@ -35,7 +35,7 @@ const action = argv.find((a) => !a.startsWith('--')) || 'light1';
 const opt = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 && argv[i + 1] !== undefined ? argv[i + 1] : d; };
 const VIEWS = opt('views', 'side,front,top').split(',');
 const STEP = +opt('step', 2);            // sim frames (1/60 s) per captured frame
-const DUR = +opt('dur', action === 'combo' ? 2.0 : action === 'run' || action === 'walk' || action.includes('hit') ? 1.0 : action.includes('stagger') ? 1.4 : 1.4);
+const DUR = +opt('dur', action === 'combo' ? 2.0 : action === 'run' || action === 'walk' || action === 'stroll' ? 1.2 : action.includes('hit') ? 1.0 : action.includes('stagger') ? 1.4 : 1.4);
 const NF = opt('nf', 'Wylder');
 const FROM = opt('from', 'front');
 const NAME = opt('name', action.replace(':', '_') + (action.includes('hit') || action.includes('stagger') ? '_' + FROM : ''));
@@ -103,14 +103,14 @@ await page.evaluate(() => {
     setup(kind) {
       g.manualSim = true;
       const p = g.player;
-      api.teleport(150, 210); p.yaw = 0; p.setState('idle'); p.anim.play('idle', { restart: true }); p.attack.phase = 'none';
+      api.teleport(200, 210); p.yaw = 0; p.setState('idle'); p.anim.play('idle', { restart: true }); p.attack.phase = 'none';
       for (const e of g.entities) if (e !== p) e.frozen = true;
       let subj = p;
       if (kind !== 'player') {
         const e = api.spawn(kind === 'knight' ? 'guard' : kind); // guard = tier-2 soldier (knight weapon)
-        e.teleport(150, 214); e.yaw = Math.PI; e.stop && e.stop(); // faces the player, held frozen until start()
+        e.teleport(200, 214); e.yaw = Math.PI; e.stop && e.stop(); // faces the player, held frozen until start()
         e.setState('idle'); e.anim.play('idle', { restart: true }); e.frozen = true;
-        p.teleport(150, 200); p.yaw = 0; // player well behind the camera
+        p.teleport(200, 200); p.yaw = 0; // player well behind the camera
         subj = e;
       }
       st.subject = subj;
@@ -143,6 +143,7 @@ await page.evaluate(() => {
       if (s === g.player) {
         if (action === 'roll') { s.buffer('roll'); return; }
         if (action === 'run' || action === 'walk') { return; } // driven by keyboard input from the node side
+        if (action === 'stroll') { g.input.touchAxis.y = 0.38; return; } // a third of the stick: ~2.2 m/s, the walk gait
         if (action === 'skill') { s.buffer('skill'); return; }
         if (action === 'heavy') { s.buffer('heavy'); return; }
         s.buffer('light'); return;
@@ -219,7 +220,7 @@ await page.evaluate(() => {
       g.render = pass; pass();
     },
     bladeSpan(v) { window.__motionSpan = v; },
-    restore() { if (st.camUpdate) { g.cameraCtl.update = st.camUpdate; st.camUpdate = null; } g.hud.setVisible(st.hudVis); st.origin = null; },
+    restore() { g.input.touchAxis.y = 0; if (st.camUpdate) { g.cameraCtl.update = st.camUpdate; st.camUpdate = null; } g.hud.setVisible(st.hudVis); st.origin = null; },
     resetOrigin() { st.origin = null; st.prevTip = null; st.prevDir = null; },
   };
 });
@@ -257,6 +258,7 @@ for (const view of VIEWS) {
   }
   frames[view] = list;
   if (sub === 'run' || sub === 'walk') { await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft'); }
+  if (sub === 'stroll') await page.evaluate(() => { window.__game.game.input.touchAxis.y = 0; });
 }
 await page.evaluate(() => window.__motion.restore());
 
@@ -310,16 +312,16 @@ if (withTip.length && swing.length) {
   }
   // locomotion: skip the first 0.3 s (acceleration), then judge the planted foot's world speed, cadence and stride
   const loco = trace.filter((f) => f.feet && f.t > 0.3);
-  if ((sub === 'run' || sub === 'walk') && loco.length > 4) {
+  if ((sub === 'run' || sub === 'walk' || sub === 'stroll') && loco.length > 4) {
     const dt = STEP / 60, rootV = [];
     for (let i = 1; i < loco.length; i++) rootV.push(Math.hypot(loco[i].rootWorld[0] - loco[i - 1].rootWorld[0], loco[i].rootWorld[1] - loco[i - 1].rootWorld[1]) / dt);
     const vRoot = rootV.reduce((a, b) => a + b, 0) / rootV.length;
     let planted = [], steps = 0;
     for (const side of [0, 1]) {
       let wasDown = false;
-      const floor = Math.min(...loco.map((f) => f.feet[side][1])); // stance = within 4 cm of this foot's lowest height
+      const floor = Math.min(...loco.map((f) => f.feet[side][1])); // stance = within 2 cm of this foot's lowest height (a 30 fps frame that straddles the landing is not stance)
       for (let i = 1; i < loco.length; i++) {
-        const a = loco[i - 1].feet[side], b = loco[i].feet[side], down = b[1] < floor + 0.04;
+        const a = loco[i - 1].feet[side], b = loco[i].feet[side], down = b[1] < floor + 0.02;
         if (down && wasDown) planted.push(Math.hypot(b[0] - a[0], b[2] - a[2]) / dt);
         if (down && !wasDown) steps++;
         wasDown = down;
@@ -383,7 +385,7 @@ for (const view of VIEWS) {
   const cols = Math.min(6, list.length), tw = 400, th = 300, rows = Math.ceil(list.length / cols);
   await renderCanvas(cols * tw, rows * (th + 16) + 28, SHEET_FN, { urls: list.map((f) => toDataUrl(f.file)), traces, cols, tw, th, title: `${action} — ${view} — ${info.name}/${info.weapon} — ${60 / STEP} fps` }, path.join(OUT, `sheet_${view}.png`));
   // onion: every frame while a swing is live, every other frame otherwise, capped at 24 layers
-  const live = list.map((f, i) => ({ f, i })).filter(({ f }) => f.trace.phase !== 'none' || action === 'roll' || action === 'run');
+  const live = list.map((f, i) => ({ f, i })).filter(({ f }) => f.trace.phase !== 'none' || action === 'roll' || action === 'run' || action === 'walk' || action === 'stroll');
   const pick = (live.length ? live : list.map((f, i) => ({ f, i }))).filter((_, k, arr) => k % Math.max(1, Math.ceil(arr.length / 24)) === 0);
   await renderCanvas(W, H, ONION_FN, { urls: [...pick.map(({ f }) => toDataUrl(f.file)), ...pick.map(({ f }) => toDataUrl(f.mask))], traces: pick.map(({ f }) => f.trace), title: `${action} — ${view}` }, path.join(OUT, `onion_${view}.png`));
   // gif
