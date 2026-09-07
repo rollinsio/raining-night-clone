@@ -1,6 +1,6 @@
 # Nightreign Demo — Architecture Contract
 
-Browser-playable demo of Elden Ring Nightreign. Three.js + Vite, vanilla ES modules, **zero external assets** — every mesh, texture, and sound is generated procedurally in code so the build is self-contained and loads instantly.
+Browser-playable demo of Elden Ring Nightreign. Three.js + Vite, vanilla ES modules, **no external assets** — every mesh, texture and sound effect is generated procedurally in code; the only files are the two music tracks bundled from `src/audio/tracks`, so the build is self-contained and loads instantly.
 
 Target: **Chrome, 1920×1080, 60 fps** (`renderer` at devicePixelRatio capped at 1.0; use instancing, frustum culling, merged geometry, and a single directional shadow cascade at most).
 
@@ -47,7 +47,8 @@ src/meta/Relics.js         persistence via localStorage: relics owned, vessel sl
 src/ui/HUD.js              HP/FP/stamina bars (top-left), runes (bottom-right), boss bar (bottom-center), day/timer + ring indicator, lock-on reticle, pickup prompts, damage numbers off
 src/ui/Menus.js            title, hub menus, level-up, inventory, death ("YOU DIED" style), victory, pause
 src/ui/Map.js              fullscreen map (M): POIs, grace, ring circle + next circle, player marker
-src/audio/Audio.js         WebAudio procedural: ambient drone, wind, hit thuds, sword swish, grace chime, boss drums
+src/audio/Music.js         score: the two Blackened Cathedral tracks (audio/tracks) rotate with crossfades, boss loops III, menus / death duck, results fade; off / low / full setting
+src/audio/tracks/          blackened-cathedral-2.mp3, blackened-cathedral-3.mp3 (Vite `?url` imports — hashed into dist/assets)
 tools/screenshot.mjs       playwright: boots dev server URL, poses via window.__game, captures 1920×1080 PNGs + fps
 ```
 
@@ -61,4 +62,4 @@ tools/screenshot.mjs       playwright: boots dev server URL, poses via window.__
 - Humanoids have NO facial features. Heads are smooth capsules/spheres. Bodies are tapered boxes/capsules. Cloth via simple hanging quads with vertex sway.
 - Colours: the palette lives in `Style.js` — every builder imports it. Never hardcode hex in other modules.
 - Debug API is mandatory for critics: `window.__game.teleport`, `setTime`, `spawn`, `screenshotPose(name)` where names include `vista`, `combat`, `grace`, `ring`, `boss`, `hub`, `church`, `catacomb`.
-- No external URLs. No fetch. No images. Fonts: system-ui / Georgia for HUD (no webfont loads).
+- No external URLs. No fetch. No images. Audio is the bundled music only (no CDN, no streaming). Fonts: system-ui / Georgia for HUD (no webfont loads).

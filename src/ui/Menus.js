@@ -231,6 +231,7 @@ export class Menus {
       <button class="m-btn" id="m-resume">Resume</button>
       <div class="m-quality"><span class="m-row" style="padding:8px 10px">Quality</span><button class="m-btn" data-q="high">High</button><button class="m-btn" data-q="low">Low</button></div>
       <div class="m-quality"><span class="m-row" style="padding:8px 10px">Camera</span><button class="m-btn" data-cam="close">Close</button><button class="m-btn" data-cam="default">Default</button><button class="m-btn" data-cam="far">Far</button></div>
+      <div class="m-quality"><span class="m-row" style="padding:8px 10px">Music</span><button class="m-btn" data-music="off">Off</button><button class="m-btn" data-music="low">Low</button><button class="m-btn" data-music="full">Full</button></div>
       <div class="m-line"></div>
       <button class="m-btn" id="m-abandon">Abandon Expedition</button>
       <div class="m-small">Esc to resume</div></div>`);
@@ -244,6 +245,10 @@ export class Menus {
     const markCam = () => cb.forEach((b) => b.classList.toggle('sel', Math.abs(CAM_DISTANCES[b.dataset.cam] - cam.baseDist) < 0.01));
     cb.forEach((b) => b.addEventListener('click', () => { cam.setDistance(CAM_DISTANCES[b.dataset.cam]); markCam(); }));
     markCam();
+    const music = this.game.music, mb = s.querySelectorAll('[data-music]');
+    const markMusic = () => mb.forEach((b) => b.classList.toggle('sel', b.dataset.music === music.level));
+    mb.forEach((b) => b.addEventListener('click', () => { music.setLevel(b.dataset.music); markMusic(); }));
+    markMusic();
   }
 
   /** Level cost curve. */

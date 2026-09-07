@@ -1,7 +1,7 @@
 /**
  * window.__game debug API (mandatory for critics / the screenshot tool):
  * teleport, setTime, spawn, killAll, setFps, screenshotPose(name), fps, ready, setQuality, startExpedition, resume,
- * giveWeapon(id, rarity) / equip(i) / swapWeapon() (inventory).
+ * giveWeapon(id, rarity) / equip(i) / swapWeapon() (inventory), music (the Music system).
  * Poses are deterministic compositions; the sim is frozen afterwards (call resume() to continue).
  */
 import * as THREE from 'three';
@@ -153,6 +153,7 @@ export function installDebug(game) {
     swapWeapon() { ensureRun(); return game.player.swapWeapon(1); },
     setFps(n) { game.fpsCap = n > 0 ? n : 0; },
     setQuality(q) { game.setQuality(q); },
+    get music() { return game.music; }, // score state: mode / cur / level, per-track elements
     startExpedition(nf = 'Wylder') { game.startExpedition(nf); },
     screenshotPose(name) { const f = poses[name]; if (!f) throw new Error('unknown pose ' + name + ' (' + Object.keys(poses).join(', ') + ')'); f(); return name; },
     resume() { game.posing = false; unfreezeAll(); },
