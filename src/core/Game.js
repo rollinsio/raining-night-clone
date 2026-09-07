@@ -1,7 +1,7 @@
 /**
  * Game: renderer/scene/camera, world construction, fixed-step loop with hit-stop time scale,
  * the HUB -> EXPEDITION -> RESULTS state machine, entity list and quality switch.
- * System order per step: input -> player -> entities -> combat -> run -> graces -> camera -> hud -> atmosphere -> render.
+ * System order per step: input -> player -> entities -> combat -> run -> graces -> camera -> hud -> atmosphere -> music -> render.
  */
 import * as THREE from 'three';
 import { Events } from './Events.js';
@@ -24,6 +24,7 @@ import { GraceSystem } from '../run/Grace.js';
 import { HUD } from '../ui/HUD.js';
 import { Menus } from '../ui/Menus.js';
 import { GameMap } from '../ui/Map.js';
+import { Music } from '../audio/Music.js';
 import { NIGHTFARERS, getNightfarer } from '../nightfarers/index.js';
 
 const STEP = 1 / 60;
@@ -68,6 +69,7 @@ export class Game {
     this.hud = new HUD(this);
     this.menus = new Menus(this);
     this.map = new GameMap(this);
+    this.music = new Music(this);
     this.touch = new Touch(this);
     this.hubPreview = new HubPreview(this); // roster figure in the hub
     installDebug(this);
@@ -198,6 +200,7 @@ export class Game {
     this.postfx.update(dt);
     this.terrain.update(this.camera.position);
     this.map.update(dt);
+    this.music.update(); // wall clock: fades ignore hit-stop and frame rate
     if (this.touch) this.touch.update();
     input.endFrame();
   }

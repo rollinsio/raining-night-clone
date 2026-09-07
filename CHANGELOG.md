@@ -3,6 +3,23 @@
 One line per module: what exists, and any known stubs. Folder ownership per ARCHITECTURE.md; the
 skeleton build touched every folder once — later builders own their folders from here.
 
+## Music: Blackened Cathedral score (2026-09-06)
+
+The game has a score. Two tracks, "Blackened Cathedral II" (3:33) and "III" (2:50), bundled from `src/audio/tracks`.
+
+- `audio/Music.js` — new. Plain `<audio>` elements (no WebAudio graph, so the Capacitor WebView and every browser
+  behave the same). Hub and expedition rotate II → III → II … with a 6 s crossfade into the tail of each track, the
+  hub mixed at 55 %; `boss:start` pulls III in and loops it until `boss:died`, then the rotation resumes; menus,
+  the map and death duck to 35 %; `run:won` / `run:lost` fade out; the hub picks up from the top. Browsers only
+  start audio after a gesture, so `play()` is retried on every key / pointer / touch until one is accepted. Fades
+  run on the wall clock (hit-stop and frame rate do not stretch them). Volume setting off / low / full persists in
+  `localStorage` (`nightreign.music.v1`).
+- `core/Game.js` — constructs `Music`, steps it after the map (always, also while paused so ducks animate).
+- `ui/Menus.js` — pause menu: a **Music** row (Off / Low / Full) beside Quality and Camera.
+- `core/Debug.js` — `__game.music` exposes the system (mode / cur / level / per-track elements) for probes.
+- `ARCHITECTURE.md` — the audio row and the "zero external assets" line now describe what exists (`Audio.js`
+  never did).
+
 ## Locomotion: foot-driven gait, terrain-aware running, no more uphill stutter (2026-09-03)
 
 The walk and run were rebuilt from the feet up, and the physics / camera that made climbing hills stutter were
