@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "smoke": "node tools/smoke.mjs",
     "android:sync": "vite build && cap sync android",
-    "android:apk": "vite build && cap sync android && cd android && ./gradlew assembleDebug"
+    "android:apk": "vite build && cap sync android && cd android && ./gradlew assembleDebug",
+    "phone:connect": "bash tools/phone.sh connect",
+    "phone:install": "bash tools/phone.sh install",
+    "phone:log": "bash tools/phone.sh log"
   },
   "keywords": [],
   "author": "",

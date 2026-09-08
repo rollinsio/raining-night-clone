@@ -15,7 +15,9 @@ const CSS = BASE_CSS + `
 #menu { font-family: ${FONT}; color: ${UI.text}; text-shadow: ${TEXT_SHADOW}; }
 .m-screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .m-dim { background: radial-gradient(ellipse at center, rgba(5,6,12,0.55), rgba(5,6,12,0.88)); }
-.m-panel { background: linear-gradient(rgba(12,12,17,0.94), rgba(6,6,9,0.96)); border: 1px solid ${alpha(UI.text, 0.3)}; box-shadow: 0 0 0 1px rgba(0,0,0,0.8), inset 0 0 0 1px ${alpha(UI.gold, 0.12)}, 0 30px 80px rgba(0,0,0,0.8); padding: 34px 44px; min-width: 420px; }
+.m-panel { position: relative; background: linear-gradient(rgba(12,12,17,0.94), rgba(6,6,9,0.96)); border: 1px solid ${alpha(UI.text, 0.3)}; box-shadow: 0 0 0 1px rgba(0,0,0,0.8), inset 0 0 0 1px ${alpha(UI.gold, 0.12)}, 0 30px 80px rgba(0,0,0,0.8); padding: 34px 44px; min-width: 420px; }
+.m-x { position: absolute; right: 6px; top: 6px; width: 44px; height: 44px; background: transparent; border: 1px solid transparent; color: ${UI.dim}; font: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+.m-x:hover { color: #f0e8d0; }
 .m-h1 { font-size: 30px; letter-spacing: 0.42em; text-indent: 0.42em; text-align: center; margin: 0 0 6px; }
 .m-h2 { font-size: 12px; letter-spacing: 0.36em; text-indent: 0.36em; text-align: center; color: ${UI.dim}; text-transform: uppercase; margin-bottom: 24px; }
 .m-line { position: relative; height: 1px; background: linear-gradient(90deg, transparent, ${alpha(UI.gold, 0.8)} 30%, ${alpha(UI.gold, 0.8)} 70%, transparent); margin: 14px 0 22px; }
@@ -137,14 +139,24 @@ export class Menus {
     else if (!this.open) this.openInventory();
   }
 
+  /** True while touch controls are active (menus swap key hints for tap hints and add ✕ buttons). */
+  _touch() { return !!(this.game.touch && this.game.touch.active); }
+
+  /** Tapping the dimmed backdrop (outside the panel) closes the menu — the only way out on touch
+      besides ✕, since the fullscreen menu overlay sits above the touch buttons. */
+  _backdropClose(s) { s.addEventListener('click', (e) => { if (e.target === s) this.resume(); }); }
+
   /** Carried weapons: equip one (Enter / click), discard one (Delete), each card shows the weapon's skill. */
   openInventory() {
     const p = this.game.player, inv = p.inventory;
+    const hint = this._touch() ? 'tap a card to equip · ✕ or tap outside to close' : '↑ ↓ select · Enter equip · Delete discard · I / Esc close';
     const s = this._show('inventory', `
-      <div class="m-panel m-inv"><div class="m-h1">INVENTORY</div><div class="m-h2" id="m-invsub"></div>
+      <div class="m-panel m-inv"><button class="m-x" id="m-close">✕</button><div class="m-h1">INVENTORY</div><div class="m-h2" id="m-invsub"></div>
       <div class="m-invgrid" id="m-invgrid"></div>
       <div class="m-line"></div>
-      <div class="m-small">↑ ↓ select · Enter equip · Delete discard · I / Esc close</div></div>`);
+      <div class="m-small">${hint}</div></div>`);
+    s.querySelector('#m-close').addEventListener('click', () => this.resume());
+    this._backdropClose(s);
     let sel = Math.max(0, inv.equipped);
     const grid = s.querySelector('#m-invgrid');
     const render = () => {
@@ -234,7 +246,8 @@ export class Menus {
       <div class="m-quality"><span class="m-row" style="padding:8px 10px">Music</span><button class="m-btn" data-music="off">Off</button><button class="m-btn" data-music="low">Low</button><button class="m-btn" data-music="full">Full</button></div>
       <div class="m-line"></div>
       <button class="m-btn" id="m-abandon">Abandon Expedition</button>
-      <div class="m-small">Esc to resume</div></div>`);
+      <div class="m-small">${this._touch() ? 'tap outside to resume' : 'Esc to resume'}</div></div>`);
+    this._backdropClose(s);
     s.querySelector('#m-resume').addEventListener('click', () => this.resume());
     s.querySelector('#m-abandon').addEventListener('click', () => { this.closeAll(); this.game.run.abandon(); });
     const qb = s.querySelectorAll('[data-q]');

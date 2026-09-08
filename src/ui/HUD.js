@@ -150,6 +150,22 @@ const CSS = `
 .h-title .u-orn { width: 420px; margin: 12px auto 0; }
 .h-hint { position: absolute; right: 48px; bottom: 180px; font-size: 11px; letter-spacing: 0.16em; line-height: 2; color: ${UI.dim}; text-align: right; transition: opacity 1.2s; text-transform: uppercase; }
 .h-hint b { display: inline-block; min-width: 84px; font-weight: normal; color: ${alpha(UI.text, 0.9)}; text-align: left; margin-left: 14px; }
+/* Portrait phones: the zoomed viewport is exactly 730 HUD px wide (zoom = width/730), so the
+   1920×1080 placements collide — bars run under the rune band, and the centre/bottom elements
+   land inside the touch-button cluster. Cap the bar frames short of the rune band (left edge
+   456) and lift the boss bar / reveal / prompt / weapon line clear of the touch buttons. */
+@media (orientation: portrait) {
+  .h-hp { max-width: 285px; }
+  .h-fp { max-width: 170px; }
+  .h-st { max-width: 200px; }
+  .h-tl { height: 76px; } /* end the panel band above the flask/ult row, not through it */
+  .h-compass { top: 210px; }
+  .h-boss { width: 560px; margin-left: -280px; bottom: 430px; }
+  .h-reveal { bottom: 468px; }
+  .h-prompt { bottom: 430px; left: 42%; } /* nudged up-left, clear of the taller button cluster */
+  .h-wname { bottom: 320px; }
+  .h-title { top: 40%; } /* below the centred touch controls hint */
+}
 `;
 
 /** Shared SVG gradient defs (steel / gold / roundel glow), referenced by the slot and roundel art. */
