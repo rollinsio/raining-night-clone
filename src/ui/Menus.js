@@ -143,8 +143,13 @@ export class Menus {
   _touch() { return !!(this.game.touch && this.game.touch.active); }
 
   /** Tapping the dimmed backdrop (outside the panel) closes the menu — the only way out on touch
-      besides ✕, since the fullscreen menu overlay sits above the touch buttons. */
-  _backdropClose(s) { s.addEventListener('click', (e) => { if (e.target === s) this.resume(); }); }
+      besides ✕, since the fullscreen menu overlay sits above the touch buttons. The click of the tap
+      that opened the menu can land on the backdrop (Android hit-tests it on release), so clicks in the
+      first moments after opening are ignored. */
+  _backdropClose(s) {
+    const t0 = performance.now();
+    s.addEventListener('click', (e) => { if (e.target === s && performance.now() - t0 > 400) this.resume(); });
+  }
 
   /** Carried weapons: equip one (Enter / click), discard one (Delete), each card shows the weapon's skill. */
   openInventory() {

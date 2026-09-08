@@ -73,15 +73,37 @@ async function run(width, height, label) {
   const yaw1 = await ev(() => window.__game.game.cameraCtl.yaw);
   check('look-pad drag rotates the camera', Math.abs(yaw1 - yaw0) > 0.1, `Δyaw ${(yaw1 - yaw0).toFixed(2)} rad`);
 
-  // quick tap on the look pad = lock-on (needs a target in range)
+  // holding a finger still on the look pad toggles lock-on (needs a target in range); the release must not attack
   await ev(() => window.__game.spawn('soldier'));
   await step(0.1);
+  await touch('touchStart', [{ x: lx, y: ly, id: 1 }]);
+  await page.waitForTimeout(550);
+  await step(0.05);
+  check('look-pad hold locks on', await ev(() => !!window.__game.game.cameraCtl.lockTarget));
+  await touch('touchEnd', []);
+  await step(0.05);
+  check('hold release does not attack', await ev(() => window.__game.game.player.state !== 'attack'));
+  await touch('touchStart', [{ x: lx, y: ly, id: 1 }]);
+  await page.waitForTimeout(550);
+  await step(0.05);
+  await touch('touchEnd', []);
+  check('second hold releases lock-on', await ev(() => !window.__game.game.cameraCtl.lockTarget));
+  await ev(() => window.__game.killAll()); // no enemy left to stagger the player through the attack / button checks
+  await step(0.5);
+
+  // look pad taps: a quick tap is a light attack; two taps back to back (no frame between — the headless
+  // renderer takes ~0.7 s per frame) make a heavy
   await tap(lx, ly);
-  await step(0.1);
-  check('look-pad tap toggles lock-on', await ev(() => !!window.__game.game.cameraCtl.lockTarget));
+  check('look-pad tap presses `light`', await ev(() => window.__game.game.input.pressed.has('light')));
+  await step(0.05);
+  check('tap starts a light attack', await ev(() => { const p = window.__game.game.player; return p.state === 'attack' && !p.attack.heavy; }));
+  await step(1.5); // let it finish
   await tap(lx, ly);
-  await step(0.1);
-  check('second tap releases lock-on', await ev(() => !window.__game.game.cameraCtl.lockTarget));
+  await tap(lx, ly);
+  check('second tap presses `heavy`', await ev(() => window.__game.game.input.pressed.has('heavy')));
+  await step(0.05);
+  check('double tap becomes a heavy attack', await ev(() => { const p = window.__game.game.player; return p.state === 'attack' && p.attack.heavy; }));
+  await step(2.0);
 
   // buttons: ATK feeds `light` on the press edge; ROLL puts the player in the roll state
   const atk = await btnC('atk');
@@ -110,6 +132,18 @@ async function run(width, height, label) {
   await tapBtn('pause');
   await step(0.1);
   check('pause button opens pause menu', await ev(() => window.__game.game.menus.open === 'pause'));
+  // the click of the tap that opened the menu lands on the backdrop on Android (hit-tested on release): it
+  // must not close the menu it just opened, while a later backdrop tap does
+  await ev(() => document.querySelector('.m-screen').click());
+  await step(0.05);
+  check('opening tap does not close the menu', await ev(() => window.__game.game.menus.open === 'pause'));
+  await page.waitForTimeout(450);
+  await ev(() => document.querySelector('.m-screen').click());
+  await step(0.05);
+  check('later backdrop tap resumes', await ev(() => !window.__game.game.menus.isOpen()));
+  await tapBtn('pause');
+  await step(0.1);
+  check('pause reopens', await ev(() => window.__game.game.menus.open === 'pause'));
   await page.tap('#m-resume');
   await step(0.1);
   check('menu Resume answers a tap', await ev(() => !window.__game.game.menus.isOpen()));

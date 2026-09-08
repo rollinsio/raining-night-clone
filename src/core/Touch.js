@@ -21,8 +21,9 @@ const _v = new THREE.Vector3();
 const STICK_R = 58;                 // px from stick centre to full deflection
 const DEAD = 0.14;                  // stick dead zone (fraction of STICK_R)
 const LOOK_GAIN = 2.2;              // touch px -> equivalent mouse px for the orbit camera
-const TAP_MS = 220, TAP_PX = 12;    // look-pad tap thresholds (lock-on toggle)
-const DBL_MS = 350, DBL_PX = 40, PICK_PX = 70; // double-tap on an enemy (either pad) locks onto that enemy
+const TAP_MS = 220, TAP_PX = 12;    // look-pad tap thresholds (a tap = light attack)
+const DBL_MS = 350, DBL_PX = 40, PICK_PX = 70; // double-tap: on an enemy (either pad) locks onto it; elsewhere on the look pad = heavy
+const HOLD_MS = 420;                // look-pad press held still this long = lock-on toggle (cone lock / release)
 
 /**
  * Button placement per orientation: [right, bottom|top, size] px; `pad` = left-pad width fraction.
@@ -93,7 +94,7 @@ export class Touch {
     this.layout();
     window.addEventListener('resize', () => this.layout());
     // touch-flavoured controls hint; the interact prompt drops its keyboard keycap (a button appears instead)
-    hud.el.hint.innerHTML = 'move<b>left pad</b><br>camera<b>right pad</b><br>lock-on<b>tap right pad · 2× tap enemy</b><br>sprint<b>spr (latches)</b><br>flask<b>tap flask</b><br>dodge roll<b>roll</b><br>light / heavy<b>atk / hvy</b><br>jump<b>jmp</b><br>skill / ultimate<b>tap circles</b><br>swap weapon<b>tap weapon</b><br>inventory<b>inv</b>';
+    hud.el.hint.innerHTML = 'move<b>left pad</b><br>camera<b>drag right pad</b><br>light / heavy<b>tap / 2× tap right pad</b><br>lock-on<b>hold right pad · 2× tap enemy</b><br>sprint<b>spr (latches)</b><br>flask<b>tap flask</b><br>dodge roll<b>roll</b><br>jump<b>jmp</b><br>skill / ultimate<b>tap circles</b><br>swap weapon<b>tap weapon</b><br>inventory<b>inv</b>';
     hud.el.hint.style.fontSize = '12px'; // placement comes from layout(), per orientation
     hud.root.classList.add('h-touch');   // hides the keyboard key labels on slots and art circles
     hud.el.promptK.style.display = 'none';
@@ -169,14 +170,26 @@ export class Touch {
     };
     padL.addEventListener('pointerup', endStick); padL.addEventListener('pointercancel', endStick);
 
-    // ---- look pad -------------------------------------------------------------------------- camera
+    // ---- look pad ------------------------------------------------------------------ camera / attacks
+    // Drag orbits the camera. A quick tap is a light attack (fires on the first tap, no wait for a second);
+    // a second tap within DBL_MS is a heavy — Player cancels the light's windup into it, or chains it after
+    // the light. Double-tapping an enemy locks on instead. Holding a finger still for HOLD_MS toggles lock-on.
     const padR = this.padR = document.createElement('div'); padR.className = 't-pad r'; ui.appendChild(padR);
+    const clearHold = () => { if (this.look.hold) { clearTimeout(this.look.hold); this.look.hold = 0; } };
     padR.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       if (this.hudTap(e) || this.tapLock(e)) return;
       if (this.look.id !== -1) return;
       this.look.id = e.pointerId; this.look.x = e.clientX; this.look.y = e.clientY;
       this.look.t = performance.now(); this.look.moved = 0; // handler time, not e.timeStamp — synthesized events carry stale stamps
+      this.look.dbl = this.tap.t === 0; // tapLock zeroes the record when it sees a double tap (it consumed a lock, or it's ours)
+      clearHold();
+      this.look.hold = setTimeout(() => {
+        this.look.hold = 0;
+        if (this.look.id === -1 || this.look.moved >= TAP_PX) return;
+        this.look.moved = TAP_PX; // consumed: the release must not attack
+        this.game.input.pressed.add('lockOn');
+      }, HOLD_MS);
       Touch.cap(padR, e);
     });
     padR.addEventListener('pointermove', (e) => {
@@ -184,12 +197,14 @@ export class Touch {
       const dx = e.clientX - this.look.x, dy = e.clientY - this.look.y;
       this.look.x = e.clientX; this.look.y = e.clientY;
       this.look.moved += Math.abs(dx) + Math.abs(dy);
+      if (this.look.moved >= TAP_PX) clearHold();
       if (this.game.input.enabled) this.game.input.addLook(dx * LOOK_GAIN, dy * LOOK_GAIN);
     });
     const endLook = (e) => {
       if (e.pointerId !== this.look.id) return;
-      this.look.id = -1;
-      if (e.type === 'pointerup' && performance.now() - this.look.t < TAP_MS && this.look.moved < TAP_PX) this.game.input.pressed.add('lockOn');
+      this.look.id = -1; clearHold();
+      if (e.type !== 'pointerup' || performance.now() - this.look.t >= TAP_MS || this.look.moved >= TAP_PX) return;
+      this.press(this.look.dbl ? 'heavy' : 'light'); this.release(this.look.dbl ? 'heavy' : 'light');
     };
     padR.addEventListener('pointerup', endLook); padR.addEventListener('pointercancel', endLook);
 
@@ -204,13 +219,18 @@ export class Touch {
     this.sprBtn = spr;
     this.useBtn = this.btn('use', 'use', 'interact');
     this.useBtn.classList.add('t-use');
-    this.btn('pause', '▮▮', 'pause');
-    this.btn('map', 'map', 'map');
-    this.btn('inv', 'inv', 'inventory');
+    // Overlay toggles fire on release: Android hit-tests the tap's `click` when the finger lifts, and by then the
+    // menu's backdrop sits over the button and would take the click as "tap outside to close".
+    this.btn('pause', '▮▮', 'pause', false, true);
+    this.btn('map', 'map', 'map', false, true);
+    this.btn('inv', 'inv', 'inventory', false, true);
   }
 
-  /** A round action button (placed by layout()); `action` null = caller wires its own pointerdown. */
-  btn(key, label, action, big = false) {
+  /**
+   * A round action button (placed by layout()); `action` null = caller wires its own pointerdown.
+   * `onRelease` fires the action as a tap (on pointerup) instead of on the press edge.
+   */
+  btn(key, label, action, big = false, onRelease = false) {
     const b = document.createElement('div');
     b.className = 't-btn' + (big ? ' big' : '');
     b.textContent = label;
@@ -218,9 +238,14 @@ export class Touch {
       b.addEventListener('pointerdown', (e) => {
         e.preventDefault(); e.stopPropagation();
         Touch.cap(b, e);
-        this.press(action); b.classList.add('on');
+        if (!onRelease) this.press(action);
+        b.classList.add('on');
       });
-      const end = () => { this.release(action); b.classList.remove('on'); };
+      const end = (e) => {
+        b.classList.remove('on');
+        if (onRelease) { if (e.type === 'pointerup') { this.press(action); this.release(action); } }
+        else this.release(action);
+      };
       b.addEventListener('pointerup', end); b.addEventListener('pointercancel', end);
     } else {
       b.addEventListener('pointerup', (e) => e.preventDefault());
@@ -251,17 +276,22 @@ export class Touch {
     return false;
   }
 
-  /** Second tap within DBL_MS / DBL_PX of the first: lock onto the enemy under it (if any). Consumes the tap. */
+  /**
+   * Second tap within DBL_MS / DBL_PX of the first: lock onto the enemy under it (if any). Consumes the tap.
+   * A double tap with no enemy under it (or on the enemy already locked) leaves the record zeroed so the look
+   * pad can read it as its heavy-attack double tap; a third tap starts a fresh sequence.
+   */
   tapLock(e) {
     const now = performance.now(), last = this.tap;
     const dbl = now - last.t < DBL_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < DBL_PX;
     last.t = now; last.x = e.clientX; last.y = e.clientY;
     if (!dbl) return false;
+    last.t = 0;
     const g = this.game, p = g.player;
     if (!p || g.state !== 'EXPEDITION' || !g.input.enabled) return false;
     const en = this.enemyAt(e.clientX, e.clientY);
-    if (!en) return false;
-    p.setLock(en); last.t = 0;
+    if (!en || en === p.lockTarget) return false;
+    p.setLock(en);
     return true;
   }
 

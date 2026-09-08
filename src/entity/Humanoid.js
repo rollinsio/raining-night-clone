@@ -523,9 +523,9 @@ const READY = {
  */
 const LIGHT1_KEYS = [ // right -> left
   { u: 0, pose: READY },
-  { u: 0.8, ease: 'out', pose: { shoulderR: [-1.05, -0.6, -0.25, -1.4], elbowR: [-1.6, 0, 0], wristR: [-0.1, 0, -0.35], shoulderL: [-0.5, 0.5, 0.6], elbowL: [-1.3, 0, 0],
+  { u: 0.7, ease: 'out', pose: { shoulderR: [-1.05, -0.6, -0.25, -1.4], elbowR: [-1.6, 0, 0], wristR: [-0.1, 0, -0.35], shoulderL: [-0.5, 0.5, 0.6], elbowL: [-1.3, 0, 0],
       hips: [0, -0.12, 0.03], spine: [-0.02, -0.18, 0], chest: [0, -0.18, 0], head: [0, 0.3, 0], hipsY: -0.07 } },
-  { u: 0.7, ease: 'out', pose: { shoulderR: [-1.1, -0.7, -0.25, -1.5], elbowR: [-1.7, 0, 0], wristR: [-0.1, 0, -0.4], hips: [0, -0.14, 0.03], spine: [-0.02, -0.2, 0], chest: [0, -0.2, 0], head: [0, 0.33, 0], hipsY: -0.08 } },
+  { u: 0.8, ease: 'out', pose: { shoulderR: [-1.1, -0.7, -0.25, -1.5], elbowR: [-1.7, 0, 0], wristR: [-0.1, 0, -0.4], hips: [0, -0.14, 0.03], spine: [-0.02, -0.2, 0], chest: [0, -0.2, 0], head: [0, 0.33, 0], hipsY: -0.08 } },
   { u: 0.85, ease: 'out', pose: {} }, // hold: the blade starts moving in the last 15 % of the windup
   { u: 1.55, ease: 'in15', pose: { shoulderR: [-1.5, -0.1, -0.25], elbowR: [-0.15, 0, 0], wristR: [0.05, 0, 0.15], shoulderL: [-0.3, 0.2, 0.5], elbowL: [-0.9, 0, 0],
       hips: [0.05, 0.25, 0], spine: [0.18, 0.15, 0], chest: [0.15, 0.2, 0], head: [-0.15, -0.35, 0], ...deepLegs, hipsY: -0.12 } },
@@ -536,9 +536,9 @@ const LIGHT1_KEYS = [ // right -> left
 ];
 const LIGHT2_KEYS = [ // left -> right (backhand)
   { u: 0, pose: READY },
-  { u: 0.8, ease: 'out', pose: { shoulderR: [-1.25, 0.8, -0.2, 1.4], elbowR: [-1.6, 0, 0], wristR: [-0.1, 0, 0], shoulderL: [-0.45, 0.25, 0.5], elbowL: [-1.3, 0, 0],
+  { u: 0.7, ease: 'out', pose: { shoulderR: [-1.25, 0.8, -0.2, 1.4], elbowR: [-1.6, 0, 0], wristR: [-0.1, 0, 0], shoulderL: [-0.45, 0.25, 0.5], elbowL: [-1.3, 0, 0],
       hips: [0, 0.12, -0.03], spine: [-0.02, 0.18, 0], chest: [0, 0.18, 0], head: [0, -0.3, 0], hipsY: -0.07 } },
-  { u: 0.7, ease: 'out', pose: { shoulderR: [-1.3, 0.9, -0.2, 1.5], elbowR: [-1.7, 0, 0], wristR: [-0.1, 0, 0], hips: [0, 0.14, -0.03], spine: [-0.02, 0.2, 0], chest: [0, 0.2, 0], head: [0, -0.33, 0], hipsY: -0.08 } },
+  { u: 0.8, ease: 'out', pose: { shoulderR: [-1.3, 0.9, -0.2, 1.5], elbowR: [-1.7, 0, 0], wristR: [-0.1, 0, 0], hips: [0, 0.14, -0.03], spine: [-0.02, 0.2, 0], chest: [0, 0.2, 0], head: [0, -0.33, 0], hipsY: -0.08 } },
   { u: 0.85, ease: 'out', pose: {} }, // hold: the blade starts moving in the last 15 % of the windup
   { u: 1.55, ease: 'in15', pose: { shoulderR: [-1.5, 0.1, -0.2], elbowR: [-0.15, 0, 0], wristR: [0.05, 0, -0.15], shoulderL: [-0.3, 0.2, 0.5], elbowL: [-0.9, 0, 0],
       hips: [0.05, -0.25, 0], spine: [0.2, -0.15, 0], chest: [0.15, -0.2, 0], head: [-0.15, 0.35, 0], ...deepLegs, hipsY: -0.12 } },
@@ -551,9 +551,9 @@ const LIGHT2_KEYS = [ // left -> right (backhand)
  * whips it through as the body drops onto the front knee. */
 const LIGHT3_KEYS = [
   { u: 0, pose: READY },
-  { u: 0.8, ease: 'out', pose: { shoulderR: [-2.6, 0.1, -0.15], elbowR: [-0.9, 0, 0], wristR: [-0.45, 0, 0], shoulderL: [-1.1, 0.25, 0.4], elbowL: [-0.9, 0, 0],
+  { u: 0.7, ease: 'out', pose: { shoulderR: [-2.6, 0.1, -0.15], elbowR: [-0.9, 0, 0], wristR: [-0.45, 0, 0], shoulderL: [-1.1, 0.25, 0.4], elbowL: [-0.9, 0, 0],
       hips: [0, 0, 0], spine: [-0.12, 0, 0], chest: [-0.12, 0, 0], head: [0.08, 0, 0], hipsY: -0.02 } },
-  { u: 0.7, ease: 'out', pose: { shoulderR: [-2.75, 0.1, -0.15], elbowR: [-1.0, 0, 0], wristR: [-0.5, 0, 0], spine: [-0.15, 0, 0], chest: [-0.15, 0, 0], hipsY: 0 } },
+  { u: 0.8, ease: 'out', pose: { shoulderR: [-2.75, 0.1, -0.15], elbowR: [-1.0, 0, 0], wristR: [-0.5, 0, 0], spine: [-0.15, 0, 0], chest: [-0.15, 0, 0], hipsY: 0 } },
   { u: 0.85, ease: 'out', pose: {} }, // hold: the blade starts moving in the last 15 % of the windup
   { u: 1.55, ease: 'in15', pose: { shoulderR: [-1.35, 0.1, -0.15], elbowR: [-0.1, 0, 0], wristR: [0.35, 0, 0], shoulderL: [-0.5, 0.2, 0.4], elbowL: [-0.7, 0, 0],
       spine: [0.3, 0, 0], chest: [0.3, 0, 0], head: [-0.25, 0, 0], ...deepLegs, kneeL: [0.75, 0, 0], hipsY: -0.16 } },
@@ -562,27 +562,30 @@ const LIGHT3_KEYS = [
   { u: 2.3, ease: 'out', pose: { shoulderR: [-1.45, 0.1, -0.15], elbowR: [-0.35, 0, 0], wristR: [0.15, 0, 0], spine: [0.3, 0, 0], chest: [0.28, 0, 0], hipsY: -0.17 } },
   { u: 3.0, ease: 'inout', pose: READY },
 ];
-/* Two-handed overhead heavy: a slow rise onto the toes with both arms folded behind the head, then the whole
- * body drops through the cut; elbows lock out at contact, wrist whips the blade down. */
-const HEAVY_READY = {
-  shoulderR: [-0.1, 0, -0.16], elbowR: [-0.75, 0, 0], wristR: [-0.1, 0, 0], shoulderL: [-0.06, 0, 0.16], elbowL: [-0.25, 0, 0],
-  hips: [0, 0, 0], spine: [0, 0, 0], chest: [0, 0, 0], head: [0.05, 0, 0],
-  hipL: [-0.5, 0.1, 0.08], kneeL: [0.5, 0, 0], ankleL: [-0.1, 0, 0], hipR: [0.3, 0, -0.1], kneeR: [0.3, 0, 0], ankleR: [-0.45, 0, 0], hipsY: -0.04,
-};
+/* Two-handed overhead heavy. The windup coils the body back and to the right, weight on the rear foot, and
+ * brings the blade up over the right shoulder with the elbow folded (hilt beside the head, blade angled
+ * up-back) while the left hand comes across to the hilt. The cut uncoils hips → spine → arms: the body drops
+ * and pitches forward as both arms lock out, the wrist turns the blade over past vertical and the tip is
+ * driven to the ground in front. The recovery keeps moving — the blade rests a beat, then the body
+ * straightens and hauls it back up to the carry — so there is no held pose. */
+const backLegs = { hipL: [-0.2, 0.1, 0.06], kneeL: [0.25, 0, 0], ankleL: [-0.05, 0, 0], hipR: [0.38, 0, -0.1], kneeR: [0.6, 0, 0], ankleR: [-0.5, 0, 0] };
 const HEAVY_KEYS = [
-  { u: 0, pose: HEAVY_READY },
-  { u: 0.75, ease: 'out', pose: { shoulderR: [-2.7, -0.15, -0.2], elbowR: [-0.7, 0, 0], wristR: [-0.45, 0, 0], shoulderL: [-2.5, 0.25, 0.25], elbowL: [-0.7, 0, 0],
-      spine: [-0.15, 0, 0], chest: [-0.15, 0, 0], head: [0.1, 0, 0], kneeL: [0.35, 0, 0], kneeR: [0.2, 0, 0], ankleL: [0, 0, 0], hipsY: 0.02 } },
-  { u: 0.7, ease: 'out', pose: { shoulderR: [-2.85, -0.15, -0.2], elbowR: [-0.85, 0, 0], wristR: [-0.55, 0, 0], shoulderL: [-2.65, 0.25, 0.25], elbowL: [-0.85, 0, 0],
-      spine: [-0.2, 0, 0], chest: [-0.2, 0, 0], hipsY: 0.03 } },
-  { u: 0.85, ease: 'out', pose: {} }, // hold: the blade starts moving in the last 15 % of the windup
-  { u: 1.55, ease: 'in15', pose: { shoulderR: [-1.5, -0.15, -0.2], elbowR: [-0.1, 0, 0], wristR: [0.25, 0, 0], shoulderL: [-1.4, 0.25, 0.25], elbowL: [-0.1, 0, 0],
-      spine: [0.35, 0, 0], chest: [0.35, 0, 0], head: [-0.3, 0, 0], kneeL: [0.9, 0, 0], kneeR: [0.55, 0, 0], ankleL: [-0.3, 0, 0], hipsY: -0.22 } },
-  { u: 2.0, ease: 'out15', pose: { shoulderR: [-1.65, -0.15, -0.2], elbowR: [-0.2, 0, 0], wristR: [0.15, 0, 0], shoulderL: [-1.6, 0.25, 0.25], elbowL: [-0.2, 0, 0],
-      spine: [0.4, 0, 0], chest: [0.35, 0, 0], kneeL: [1.0, 0, 0], kneeR: [0.6, 0, 0], ankleL: [-0.35, 0, 0], hipsY: -0.3 } },
-  { u: 2.35, ease: 'out', pose: { shoulderR: [-1.55, -0.15, -0.2], elbowR: [-0.3, 0, 0], wristR: [0.15, 0, 0], shoulderL: [-1.5, 0.25, 0.25], elbowL: [-0.3, 0, 0],
-      spine: [0.36, 0, 0], chest: [0.32, 0, 0], hipsY: -0.26 } },
-  { u: 3.0, ease: 'inout', pose: HEAVY_READY },
+  { u: 0, pose: READY },
+  { u: 0.6, ease: 'out15', pose: { shoulderR: [-2.3, -0.5, -0.5], elbowR: [-0.9, 0, 0], wristR: [-0.3, 0, 0], shoulderL: [-1.7, 0.75, 0.3], elbowL: [-1.5, 0, 0],
+      hips: [-0.05, -0.28, 0], spine: [-0.22, -0.3, 0], chest: [-0.18, -0.25, 0], head: [0.12, 0.28, 0], ...backLegs, hipsY: 0 } },
+  { u: 0.78, ease: 'out', pose: { shoulderR: [-2.4, -0.55, -0.55], elbowR: [-0.95, 0, 0], wristR: [-0.35, 0, 0], shoulderL: [-1.8, 0.8, 0.3], elbowL: [-1.55, 0, 0],
+      hips: [-0.06, -0.32, 0], spine: [-0.26, -0.34, 0], chest: [-0.2, -0.28, 0], head: [0.14, 0.32, 0], hipsY: 0.02 } },
+  { u: 0.88, ease: 'out', pose: { spine: [-0.28, -0.35, 0], hipsY: 0.03 } }, // the coil creeps on: no held pose before the cut
+  { u: 1.5, ease: 'in15', pose: { shoulderR: [-1.9, -0.05, -0.3], elbowR: [-0.12, 0, 0], wristR: [0.1, 0, 0], shoulderL: [-1.8, 0.3, 0.3], elbowL: [-0.15, 0, 0],
+      hips: [0.08, 0.15, 0], spine: [0.3, 0.12, 0], chest: [0.26, 0.08, 0], head: [-0.3, 0, 0], ...deepLegs, hipsY: -0.18 } },
+  { u: 2.0, ease: 'out15', pose: { shoulderR: [-1.5, -0.05, -0.3], elbowR: [-0.15, 0, 0], wristR: [0.15, 0, 0], shoulderL: [-1.42, 0.3, 0.3], elbowL: [-0.2, 0, 0],
+      hips: [0.1, 0.18, 0], spine: [0.34, 0.12, 0], chest: [0.24, 0.08, 0], head: [-0.3, 0, 0],
+      hipL: [-0.55, 0.1, 0.06], kneeL: [0.95, 0, 0], ankleL: [-0.3, 0, 0], kneeR: [0.5, 0, 0], hipsY: -0.3 } },
+  { u: 2.25, ease: 'out', pose: { shoulderR: [-1.46, -0.05, -0.3], wristR: [0.17, 0, 0], shoulderL: [-1.38, 0.3, 0.3], spine: [0.36, 0.12, 0], hipsY: -0.32 } },
+  { u: 2.6, ease: 'inout', pose: { shoulderR: [-0.45, 0, -0.22], elbowR: [-0.55, 0, 0], wristR: [-0.1, 0, 0], shoulderL: [-0.35, 0.15, 0.25], elbowL: [-0.5, 0, 0],
+      hips: [0.03, 0.08, 0], spine: [0.15, 0.05, 0], chest: [0.1, 0.03, 0], head: [-0.05, 0, 0],
+      hipL: [-0.38, 0.1, 0.06], kneeL: [0.6, 0, 0], ankleL: [-0.18, 0, 0], hipR: [0.25, 0, -0.08], kneeR: [0.4, 0, 0], ankleR: [-0.42, 0, 0], hipsY: -0.14 } },
+  { u: 3.0, ease: 'inout', pose: READY },
 ];
 
 /**

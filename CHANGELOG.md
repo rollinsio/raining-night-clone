@@ -3,6 +3,25 @@
 One line per module: what exists, and any known stubs. Folder ownership per ARCHITECTURE.md; the
 skeleton build touched every folder once — later builders own their folders from here.
 
+## Touch: tap-to-attack look pad, menu buttons that stay open, a real overhead heavy (2026-09-08)
+
+- `core/Touch.js` — the look pad attacks: a quick tap is a light (fires on the first tap, no wait), a second tap
+  within 350 ms is a heavy, a finger held still for 420 ms toggles lock-on (the old single-tap lock toggle is
+  gone; double-tapping an enemy still locks onto it). Pause / map / inventory fire on release: Android hit-tests
+  the tap's `click` when the finger lifts, and the menu backdrop that had just appeared over the button was taking
+  it as "tap outside to close" — hence menus that only stayed open if you slid off the button.
+- `ui/Menus.js` — backdrop-close ignores clicks in the first 400 ms after a menu opens (same bug, second guard).
+- `entity/Player.js` — a heavy asked for while a light is still winding up replaces the light; a heavy asked for
+  during a light's swing gets a 0.6 s buffer so it chains after the light (the touch double tap needs both).
+- `entity/Humanoid.js` — `heavy` clip rewritten: the body coils back and to the right with the blade chambered
+  over the right shoulder (hilt beside the head, blade angled up-back, left hand at the hilt), uncoils hips →
+  spine → arms through an overhead cut that drives the tip to knee height in a forward lunge, then straightens
+  and hauls the blade back up through the recovery instead of freezing in the follow-through. The light clips'
+  chamber keys were listed out of order (u 0.8 before 0.7), which popped the blade ~25° at the end of every
+  windup; they now run in order.
+- `tools/touch-smoke.mjs` — covers tap → light, double tap → heavy, hold → lock-on, and the pause menu
+  surviving its opening tap's click.
+
 ## Music: Blackened Cathedral score (2026-09-06)
 
 The game has a score. Two tracks, "Blackened Cathedral II" (3:33) and "III" (2:50), bundled from `src/audio/tracks`.
