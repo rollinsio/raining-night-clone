@@ -24,17 +24,29 @@ const LOOK_GAIN = 2.2;              // touch px -> equivalent mouse px for the o
 const TAP_MS = 220, TAP_PX = 12;    // look-pad tap thresholds (lock-on toggle)
 const DBL_MS = 350, DBL_PX = 40, PICK_PX = 70; // double-tap on an enemy (either pad) locks onto that enemy
 
-/** Button placement per orientation: [right, bottom|top, size] px; `pad` = left-pad width fraction. */
+/**
+ * Button placement per orientation: [right, bottom|top, size] px; `pad` = left-pad width fraction.
+ * `artS` / `artU` [right, bottom] place the HUD's skill / ultimate art circles inside the cluster —
+ * on touch they ARE the skill/ult buttons (hudTap fires them, and they keep the cooldown sweeps),
+ * so no separate SKL/ULT buttons exist. `hint` positions the controls list in HUD px (it lives
+ * inside the zoomed #hud); centred in portrait so it clears the compass and the button columns.
+ */
+// Cluster rows, top to bottom: SPR centred · HVY | ATK · JMP | ROLL · ULT | SKL (the art circles).
+// All cluster buttons (arts and interact included) share one size per orientation.
 const LAYOUT = {
   landscape: {
     pad: 0.44,
-    atk: [104, 92, 64], hvy: [26, 152, 50], roll: [26, 28, 56], skl: [190, 136, 46], ult: [176, 40, 46],
-    spr: [288, 30, 42], use: [140, 232, 46], pause: [12, 8, 34, 'top'], map: [56, 8, 34, 'top'], inv: [100, 8, 34, 'top'], jmp: [96, 16, 46],
+    atk: [18, 172, 60], hvy: [92, 172, 60], roll: [18, 96, 60], jmp: [92, 96, 60],
+    spr: [55, 248, 60], use: [55, 318, 60], pause: [12, 8, 34, 'top'], map: [56, 8, 34, 'top'], inv: [100, 8, 34, 'top'],
+    artS: [18, 20, 60], artU: [92, 20, 60],
+    hint: { top: 140, right: 300 },
   },
   portrait: {
     pad: 0.5,
-    atk: [84, 96, 60], hvy: [16, 160, 48], roll: [16, 28, 54], skl: [92, 20, 44], ult: [150, 120, 44],
-    spr: [110, 190, 40], use: [24, 236, 44], pause: [8, 62, 32, 'top'], map: [48, 62, 32, 'top'], inv: [88, 62, 32, 'top'], jmp: [148, 24, 46],
+    atk: [18, 166, 56], hvy: [90, 166, 56], roll: [18, 94, 56], jmp: [90, 94, 56],
+    spr: [54, 238, 56], use: [54, 308, 56], pause: [8, 76, 32, 'top'], map: [48, 76, 32, 'top'], inv: [88, 76, 32, 'top'],
+    artS: [18, 22, 56], artU: [90, 22, 56],
+    hint: { top: 240, center: true },
   },
 };
 
@@ -52,6 +64,7 @@ const CSS = `
 .t-btn.on { border-color: ${alpha(UI.gold, 0.8)}; color: ${GOLD_L}; background: radial-gradient(circle at 38% 30%, ${alpha(UI.gold, 0.22)}, rgba(10,10,14,0.8)); box-shadow: 0 0 14px ${alpha(UI.gold, 0.35)}, 0 2px 10px rgba(0,0,0,0.45); }
 .t-btn.big { font-size: 12px; }
 .t-use { border-color: ${alpha(UI.gold, 0.5)}; color: ${GOLD_L}; display: none; }
+#hud.h-touch .h-art .k, #hud.h-touch .h-slot .k { display: none !important; }
 `;
 
 export class Touch {
@@ -80,10 +93,9 @@ export class Touch {
     this.layout();
     window.addEventListener('resize', () => this.layout());
     // touch-flavoured controls hint; the interact prompt drops its keyboard keycap (a button appears instead)
-    hud.el.hint.innerHTML = 'move<b>left pad</b><br>camera<b>right pad</b><br>lock-on<b>tap right pad · 2× tap enemy</b><br>sprint<b>spr (latches)</b><br>flask<b>tap flask</b><br>dodge roll<b>roll</b><br>light / heavy<b>atk / hvy</b><br>jump<b>jmp</b><br>skill / ultimate<b>skl / ult</b><br>swap weapon<b>tap weapon</b><br>inventory<b>inv</b>';
-    // the desktop hint spot (bottom-right) collides with the day/timer line and buttons on phones
-    const hs = hud.el.hint.style;
-    hs.top = '126px'; hs.bottom = 'auto'; hs.right = '300px'; hs.fontSize = '12px';
+    hud.el.hint.innerHTML = 'move<b>left pad</b><br>camera<b>right pad</b><br>lock-on<b>tap right pad · 2× tap enemy</b><br>sprint<b>spr (latches)</b><br>flask<b>tap flask</b><br>dodge roll<b>roll</b><br>light / heavy<b>atk / hvy</b><br>jump<b>jmp</b><br>skill / ultimate<b>tap circles</b><br>swap weapon<b>tap weapon</b><br>inventory<b>inv</b>';
+    hud.el.hint.style.fontSize = '12px'; // placement comes from layout(), per orientation
+    hud.root.classList.add('h-touch');   // hides the keyboard key labels on slots and art circles
     hud.el.promptK.style.display = 'none';
   }
 
@@ -92,7 +104,7 @@ export class Touch {
   /** setPointerCapture throws for pointers the browser isn't tracking (synthetic events) — never fatal. */
   static cap(el, e) { try { el.setPointerCapture(e.pointerId); } catch { /* fine: move/up still reach us */ } }
 
-  /** Apply the orientation's placement table to the pads and buttons (runs on build and resize). */
+  /** Apply the orientation's placement table to the pads, buttons and HUD art circles (build + resize). */
   layout() {
     const L = innerHeight > innerWidth ? LAYOUT.portrait : LAYOUT.landscape;
     this.padL.style.width = `${L.pad * 100}%`;
@@ -104,6 +116,20 @@ export class Touch {
       else { b.style.bottom = y + 'px'; b.style.top = ''; }
       b.style.width = b.style.height = size + 'px';
     }
+    // The art circles live inside the zoomed #hud: re-anchor their 0×0 container to the screen
+    // corner and divide the CSS-px placements by the HUD zoom so they land beside the buttons.
+    const hud = this.game.hud, z = hud.zoom || 1;
+    const arts = hud.el.artSkill.parentElement;
+    arts.style.left = 'auto'; arts.style.right = '0'; arts.style.bottom = '0';
+    const place = (el, [right, bottom, size]) => {
+      el.style.left = 'auto'; el.style.right = right / z + 'px'; el.style.bottom = bottom / z + 'px';
+      el.style.width = el.style.height = size / z + 'px';
+    };
+    place(hud.el.artSkill, L.artS); place(hud.el.artUlt, L.artU);
+    const hs = hud.el.hint.style;
+    hs.top = L.hint.top + 'px'; hs.bottom = 'auto';
+    if (L.hint.center) { hs.left = '50%'; hs.right = 'auto'; hs.transform = 'translateX(-50%)'; }
+    else { hs.right = L.hint.right + 'px'; hs.left = 'auto'; hs.transform = ''; }
   }
 
   build() {
@@ -173,8 +199,6 @@ export class Touch {
     this.btn('hvy', 'hvy', 'heavy');
     this.btn('roll', 'roll', 'roll', true);
     this.btn('jmp', 'jmp', 'jump');
-    this.btn('skl', 'skl', 'skill');
-    this.btn('ult', 'ult', 'ult');
     const spr = this.btn('spr', 'spr', null);
     spr.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.setSprint(!this.sprintLatch); });
     this.sprBtn = spr;

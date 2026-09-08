@@ -17,6 +17,9 @@ public class MainActivity extends BridgeActivity {
         // A game: never dim/sleep, and draw edge-to-edge (under any display cutout).
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        // The HUD is laid out in px; the WebView's default textZoom tracks the system font
+        // scale (e.g. 115%) and pushes labels into neighbouring elements. Pin it to 100.
+        this.bridge.getWebView().getSettings().setTextZoom(100);
     }
 
     @Override

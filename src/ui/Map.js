@@ -11,6 +11,11 @@ const CSS = `
 .map-frame { border: 1px solid #3d3a33; box-shadow: 0 0 0 1px #0b0b0d, 0 30px 80px rgba(0,0,0,0.8); background: #0a0b10; padding: 14px; }
 .map-title { font-family: Georgia, serif; font-size: 14px; letter-spacing: 0.4em; text-indent: 0.4em; text-align: center; color: ${UI.dim}; margin-bottom: 10px; text-transform: uppercase; }
 .map-frame canvas { display: block; width: 720px; height: 720px; }
+/* portrait phones: the zoomed HUD viewport is 730px wide — shrink the frame so it fits with margin */
+@media (orientation: portrait) {
+  .map-frame { padding: 10px; }
+  .map-frame canvas { width: 656px; height: 656px; }
+}
 `;
 
 export class GameMap {
@@ -49,7 +54,11 @@ export class GameMap {
   toggle() {
     const game = this.game;
     if (game.state !== 'EXPEDITION' || game.menus.isOpen()) { if (this.isOpen) this.close(); return; }
-    if (this.isOpen) this.close(); else { this.isOpen = true; this.wrap.classList.add('open'); game.paused = true; this.redrawT = 0; }
+    if (this.isOpen) this.close();
+    else {
+      this.isOpen = true; this.wrap.classList.add('open'); game.paused = true; this.redrawT = 0;
+      this.wrap.querySelector('.map-title').textContent = game.touch && game.touch.active ? 'Limveld · tap MAP to close' : 'Limveld · M to close';
+    }
   }
   close() { this.isOpen = false; this.wrap.classList.remove('open'); if (!this.game.menus.isOpen()) this.game.paused = false; }
 
