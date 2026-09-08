@@ -11,6 +11,7 @@
  */
 import * as THREE from 'three';
 import { RigBuilder, Animator, HUMANOID_CLIPS } from '../Humanoid.js';
+import { blade, crossguard, grip } from '../WeaponGeo.js';
 import { PALETTE, charMats, mixHex } from '../../render/Style.js';
 
 const TAU = Math.PI * 2;
@@ -83,18 +84,16 @@ function weapon(visual, C) {
   const P = [];
   const add = (geo, color, y, x = 0, z = 0, blade = false, shade = 1) => { geo.translate(x, y, z); P.push({ geo, color, blade, shade }); };
   if (visual === 'greatsword') {
-    add(box(0.11, 1.4, 0.024), PALETTE.steel, -0.9, 0, 0, true);
-    add(box(0.03, 1.1, 0.03), PALETTE.steelDark, -0.78, 0, 0, true, 0.7);          // fuller
-    add(box(0.38, 0.05, 0.08), C.plate, -0.18); add(box(0.07, 0.1, 0.1), C.trim, -0.13);
-    add(cyl(0.026, 0.03, 0.36, 5), PALETTE.leather, 0.02); add(new THREE.SphereGeometry(0.045, 6, 4), C.trim, 0.2);
+    add(blade([[-0.2, 0.058, 0.013], [-0.34, 0.06, 0.014], [-1.25, 0.05, 0.012], [-1.48, 0.036, 0.009], [-1.6, 0.003, 0.002]]), PALETTE.steel, 0, 0, 0, true);
+    add(crossguard(0.19, 0.026, 0.038, 0.04), C.plate, -0.18); add(box(0.07, 0.1, 0.1), C.trim, -0.13);
+    add(grip(-0.16, 0.2, 0.027, 0.03), PALETTE.leather, 0); add(new THREE.SphereGeometry(0.045, 6, 4), C.trim, 0.2);
   } else if (visual === 'spear') {
     add(cyl(0.022, 0.026, 2.3, 5), PALETTE.woodDark, -0.7);
-    add(new THREE.ConeGeometry(0.06, 0.42, 4), PALETTE.steel, -2.05, 0, 0, true);
+    add(blade([[-1.82, 0.03, 0.015], [-1.95, 0.05, 0.02], [-2.16, 0.025, 0.012], [-2.28, 0.003, 0.002]]), PALETTE.steel, 0, 0, 0, true);
     add(cyl(0.035, 0.045, 0.12, 5), C.plate, -1.82);
   } else {
-    add(box(0.065, 0.94, 0.016), PALETTE.steel, -0.59, 0, 0, true);
-    add(box(0.018, 0.7, 0.02), PALETTE.steelDark, -0.5, 0, 0, true, 0.7);
-    add(box(0.3, 0.04, 0.05), C.plate, -0.11); add(cyl(0.02, 0.024, 0.2, 5), PALETTE.leather, 0);
+    add(blade([[-0.12, 0.032, 0.008], [-0.24, 0.033, 0.008], [-0.9, 0.026, 0.007], [-1.0, 0.017, 0.005], [-1.06, 0.002, 0.001]]), PALETTE.steel, 0, 0, 0, true);
+    add(crossguard(0.15, 0.02, 0.026, 0.02), C.plate, -0.11); add(grip(-0.1, 0.1, 0.021, 0.025), PALETTE.leather, 0);
     add(new THREE.SphereGeometry(0.034, 6, 4), C.bone || C.trim, 0.11);
   }
   for (const p of P) p.geo.rotateX(-0.35);
