@@ -102,7 +102,7 @@ export class Enemy extends Entity {
     a.def = def; a.t = 0; a.phase = 'windup'; a.hitSet.clear(); a.lastAngle = def.arcFrom * DEG; a.reach = this.weapon.reach; a.stepped = false;
     this.setState('attack'); this.stop();
     const ctx = this.anim.ctx; ctx.windup = def.windup; ctx.active = def.active; ctx.recover = def.recover;
-    this.anim.play(def.clip, { restart: true, blend: 0.1 });
+    this.anim.play(def.clip, { restart: true, blend: Math.min(0.3, Math.max(0.08, def.windup * 0.9)) });
     this.glow = 0; this.telegraph = 0; this._glowDirty = true;
   }
 
@@ -155,7 +155,7 @@ export class Enemy extends Entity {
       case 'patrol': {
         if (this.aggro) { this.setState('alert'); break; }
         const d = this.moveToward(this.dest.x, this.dest.z, this.walkSpeed, dt);
-        anim.play('run', { blend: 0.15 }); anim.ctx.speed = 0; anim.ctx.mps = Math.max(0.6, this.groundSpeed); anim.ctx.slope = this.slope;
+        anim.ctx.speed = 0; anim.ctx.mps = Math.max(0.6, this.groundSpeed); anim.ctx.slope = this.slope; anim.play('run', { blend: 0.15 });
         if (d < 0.8 || this.stateT > 12) { this.waitT = this.rng.range(1.5, 5); this.setState('idle'); }
         break;
       }
@@ -169,7 +169,7 @@ export class Enemy extends Entity {
         this.cooldown -= dt;
         if (dist > this.attackRange * 0.9 + 0.2) {
           this.moveToward(player.pos.x, player.pos.z, this.runSpeed, dt);
-          anim.play('run', { blend: 0.15 }); anim.ctx.speed = 0.75; anim.ctx.mps = Math.max(0.6, this.groundSpeed); anim.ctx.slope = this.slope;
+          anim.ctx.speed = 0.75; anim.ctx.mps = Math.max(0.6, this.groundSpeed); anim.ctx.slope = this.slope; anim.play('run', { blend: 0.15 });
         } else {
           if (this.cooldown <= 0) { this.startAttack(this.pickAttack()); break; }
           if (this.considerGuard(player, dist)) { this.setState('guard'); this.guarding = true; anim.play('guard', { restart: true }); break; }

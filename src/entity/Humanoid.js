@@ -251,9 +251,11 @@ function bakeAO(geo, { strength = 0.8, radius = 0.3, gain = 1.0, groundY = 0, gr
 }
 
 // -------------------------------------------------------------------------------------------------
-// Animator: clips write target angles; current pose eases toward the target each frame.
+// Animator: clips write target angles; the pose on screen is the clip plus a decaying offset that carries the
+// previous motion across every clip switch (inertialization).
 
-const E_HIPSY = 0, E_PITCH = 1, E_ROLL = 2, E_YAW = 3;
+export const E_HIPSY = 0, E_PITCH = 1, E_ROLL = 2, E_YAW = 3;
+const DEFAULT_BLEND = 0.16;
 
 export class Animator {
   /**
@@ -267,17 +269,26 @@ export class Animator {
     this.idx = {}; this.bones.forEach((b, i) => { this.idx[b.name] = i; });
     // channels: 3 Euler angles per bone, 4 whole-body extras, then one twist per bone (rotation about the
     // bone's own axis applied innermost — the YXZ Euler cannot express it for a raised limb)
-    this.cur = new Float32Array(this.n * 4 + 4);
-    this.tgt = new Float32Array(this.n * 4 + 4);
+    const N = this.n * 4 + 4;
+    this.cur = new Float32Array(N);
+    this.tgt = new Float32Array(N);
     this.root = this.bones[0]; this.rootRestY = rootRestY ?? this.root.position.y;
     this.pivotRestY = pivot.position.y;
-    this.clip = null; this.name = ''; this.t = 0; this.rate = 14;
-    // exact mode (attacks): the clip's curve is applied verbatim after a short crossfade from the pose it
-    // interrupted, so fast swings are not smeared by the low-pass below (see play)
-    this.from = new Float32Array(this.n * 4 + 4); this.blend = 0; this.blendT = 0;
+    this.clip = null; this.name = ''; this.t = 0;
+    // Every clip plays exactly (its curve is the curve on screen — no low-pass smear). A switch never snaps:
+    // the difference between the pose being left and the new clip's first frame, together with the velocity it
+    // was moving at, becomes an offset that a quintic (position, velocity and acceleration continuous at both
+    // ends) brings to zero over `blend` seconds — Bonsall's inertialization. So a swing chained out of a
+    // follow-through carries its momentum into the next windup, and idle picks up the last stride of a run
+    // instead of flicking to the rest pose.
+    this.x0 = new Float32Array(N); this.v0 = new Float32Array(N); this.t1 = new Float32Array(N); this.vel = new Float32Array(N);
+    this.prev = new Float32Array(N); this._s0 = new Float32Array(N); this._s1 = new Float32Array(N);
+    this.blend = 0; this.blendT = 0;
     this.ctx = { speed: 0, dur: 1, windup: 0.2, active: 0.15, recover: 0.4, param: 0, mps: undefined };
     /** Optional per-step hook (dt) — used for secondary motion such as cloak lift; also runs in settle(). */
     this.onUpdate = null;
+    /** Optional additive layer (P, dt) evaluated after the clip each step: P.add / P.addExtra on top of the clip's pose. */
+    this.layer = null;
   }
   set(name, rx, ry, rz) { const i = this.idx[name]; if (i === undefined) return; this.tgt[i * 3] = rx; this.tgt[i * 3 + 1] = ry; this.tgt[i * 3 + 2] = rz; }
   add(name, rx, ry, rz) { const i = this.idx[name]; if (i === undefined) return; this.tgt[i * 3] += rx; this.tgt[i * 3 + 1] += ry; this.tgt[i * 3 + 2] += rz; }
@@ -285,33 +296,59 @@ export class Animator {
   addExtra(k, v) { this.tgt[this.n * 3 + k] += v; }
   twist(name, v) { const i = this.idx[name]; if (i === undefined) return; this.tgt[this.n * 3 + 4 + i] = v; }
 
+  /** Evaluate the current clip at time t into `out` (the clip writes through tgt, so it is swapped in for the call). */
+  sample(t, out) {
+    const keep = this.tgt; this.tgt = out; out.fill(0);
+    if (this.clip) this.clip(t, this, this.ctx);
+    this.tgt = keep;
+  }
+
   /**
-   * Switch clip (no-op if already playing unless restart). `rate` is the low-pass rate the pose eases toward the
-   * clip with; `blend` (seconds) instead crossfades from the interrupted pose and then plays the clip exactly —
-   * used for attacks, whose active frames are shorter than the low-pass would take to catch up.
+   * Switch clip (no-op if already playing unless restart). `blend` (seconds) is how long the pose it interrupts
+   * takes to die out under the new clip — short (0.03–0.05) for a blow that should snap, about the windup for an
+   * attack so the chamber is approached straight from wherever the arm was, 0.15–0.3 for everything else.
+   * `rate` (legacy low-pass strength) maps onto a blend of the same settling time.
    */
-  play(name, { rate = 14, restart = false, blend = 0 } = {}) {
-    if (this.name === name && !restart) { this.rate = rate; return; }
-    this.name = name; this.clip = this.clips[name] || this.clips.idle; this.t = 0; this.rate = rate;
-    const p = this.n * 3 + E_PITCH; // wrap whole-body pitch so a finished roll does not unwind
-    this.cur[p] = Math.atan2(Math.sin(this.cur[p]), Math.cos(this.cur[p]));
-    this.blend = blend; this.blendT = 0;
-    if (blend > 0) this.from.set(this.cur);
+  play(name, { rate = 0, restart = false, blend = 0 } = {}) {
+    if (this.name === name && !restart) return;
+    this.name = name; this.clip = this.clips[name] || this.clips.idle;
+    const cur = this.cur, N = cur.length, p = this.n * 3 + E_PITCH; // wrap whole-body pitch so a finished roll does not unwind
+    cur[p] = Math.atan2(Math.sin(cur[p]), Math.cos(cur[p]));
+    const b = blend > 0 ? blend : rate > 0 ? 2.5 / rate : DEFAULT_BLEND;
+    this.blend = b; this.blendT = 0;
+    // the clip's own first frame and velocity; the offset carries only the *difference* so the new motion is
+    // continuous in position and velocity with the old
+    this.t = 0;
+    this.sample(0, this._s0); this.sample(1 / 60, this._s1);
+    const s0 = this._s0, s1 = this._s1, x0 = this.x0, v0 = this.v0, t1 = this.t1, vel = this.vel;
+    for (let i = 0; i < N; i++) {
+      let d = cur[i] - s0[i]; if (i === p) d = Math.atan2(Math.sin(d), Math.cos(d));
+      const v = vel[i] - (s1[i] - s0[i]) * 60;
+      x0[i] = d; v0[i] = v;
+      // a channel already heading for the new clip gets there sooner rather than overshooting and coming back
+      t1[i] = d * v < 0 ? Math.min(b, -5 * d / v) : b;
+    }
   }
 
   update(dt) {
     this.t += dt;
     const tg = this.tgt; tg.fill(0);
     if (this.clip) this.clip(this.t, this, this.ctx);
-    const cur = this.cur;
-    if (this.blend > 0) {
-      this.blendT += dt;
-      const w = sm(clamp01(this.blendT / this.blend)), from = this.from;
-      for (let i = 0; i < cur.length; i++) cur[i] = from[i] + (tg[i] - from[i]) * w;
-    } else {
-      const f = 1 - Math.exp(-this.rate * dt);
-      for (let i = 0; i < cur.length; i++) cur[i] += (tg[i] - cur[i]) * f;
-    }
+    if (this.layer) this.layer(this, dt); // additive layer over any clip (landing absorb, flinches, …)
+    const cur = this.cur, prev = this.prev, vel = this.vel, N = cur.length;
+    prev.set(cur);
+    if (this.blendT < this.blend) {
+      const tb = (this.blendT += dt), x0 = this.x0, v0 = this.v0, t1 = this.t1;
+      for (let i = 0; i < N; i++) {
+        const T = t1[i];
+        if (tb >= T) { cur[i] = tg[i]; continue; }
+        // quintic from (x0, v0, a = 0) at t = 0 to (0, 0, 0) at t = T
+        const x = x0[i], v = v0[i], T2 = T * T, T3 = T2 * T;
+        const A = -(3 * v * T + 6 * x) / (T3 * T2), B = (8 * v * T + 15 * x) / (T3 * T), C = -(6 * v * T + 10 * x) / T3;
+        cur[i] = tg[i] + (((A * tb + B) * tb + C) * tb * tb * tb + v * tb + x);
+      }
+    } else cur.set(tg);
+    if (dt > 0) { const inv = 1 / dt; for (let i = 0; i < N; i++) vel[i] = (cur[i] - prev[i]) * inv; }
     this.apply();
     if (this.onUpdate) this.onUpdate(dt);
   }
@@ -333,6 +370,7 @@ export class Animator {
   /** Advance and then snap exactly onto the clip's target (deterministic screenshot poses). */
   settle(steps = 30) {
     for (let i = 0; i < steps; i++) this.update(1 / 60);
+    this.vel.fill(0); this.blendT = this.blend;
     this.cur.set(this.tgt); this.apply();
     if (this.onUpdate) this.onUpdate(0);
   }
@@ -382,11 +420,17 @@ const RUN_PH0 = HERO_PH - (40 / 60) * TAU * runCadence(HERO_SPEED);
 
 // ---- gait geometry (see HUMANOID_CLIPS.run). Legs are foot-driven: a 2-bone IK in the sagittal plane.
 const L1 = 0.44, L2 = 0.4, LEG = L1 + L2, HIP_H = 0.92, ANKLE_H = 0.08; // createHumanoid: hip joint / ankle rest heights, thigh / shin lengths
+const REACH_MAX = LEG * 0.985, REACH_SOFT = LEG * 0.06;                       // legIK soft reach limit (see softReach)
+const REACH_BENT = REACH_MAX - 0.03;                                          // hip-to-ankle distance with the knee bent ~0.6 rad
+/** Smooth maximum: max(a, b) with the corner rounded over ~k. */
+const smax = (a, b, k) => { const d = (a - b) / k; return d > 20 ? a : d < -20 ? b : b + k * Math.log1p(Math.exp(d)); };
 const clampN = (x, a, b) => (x < a ? a : x > b ? b : x);
-const _rg = { land: 2.1, sf: 0, Sf: 0, Sb: 0, lift: 0, toe: 0, H: 0, mid: 0 };
-const _wg = { land: 1.9, sf: 0, Sf: 0, Sb: 0, lift: 0, toe: 0, H: 0, mid: 0 };
+const _rg = { land: 2.1, sf: 0, Sf: 0, Sb: 0, lift: 0, toe: 0, H: 0, mid: 0, sink: 0.06 };
+const _wg = { land: 1.9, sf: 0, Sf: 0, Sb: 0, lift: 0, toe: 0, H: 0, mid: 0, sink: 0.04 };
 const _fa = { z: 0, y: 0, toe: 0, plant: 0, flat: 0 }, _fb = { z: 0, y: 0, toe: 0, plant: 0, flat: 0 };
 const _legL = { z: 0, y: 0, toe: 0, plant: 0, flat: 0, hip: 0, knee: 0, ankle: 0 }, _legR = { z: 0, y: 0, toe: 0, plant: 0, flat: 0, hip: 0, knee: 0, ankle: 0 };
+/** Heel lift needed at the end of stance for a foot `back` metres behind a pelvis `sink` metres down to stay in reach. */
+const reachLift = (back, sink) => Math.max(0, HIP_H - sink - Math.sqrt(Math.max(0, REACH_MAX * REACH_MAX - back * back)) - ANKLE_H + 0.015);
 /**
  * Run stride geometry at a ground speed: land phase, stance fraction of the cycle (shorter the faster), the
  * foot's reach ahead of / behind the hip through stance (their sum = stance fraction × cycle length, so the
@@ -395,9 +439,11 @@ const _legL = { z: 0, y: 0, toe: 0, plant: 0, flat: 0, hip: 0, knee: 0, ankle: 0
  */
 function RUN_G(mps) {
   const g = _rg, len = runCycleLen(mps);
-  g.sf = clampN(0.3 - 0.035 * (mps - 5.8), 0.2, 0.42);
-  const travel = g.sf * len; g.Sf = 0.33 * travel; g.Sb = 0.67 * travel;
-  g.lift = clampN(0.1 + 0.02 * (mps - 5.8), 0.06, 0.16); g.toe = 4 * g.lift;
+  g.sf = clampN(0.3 - 0.035 * (mps - 5.8), 0.24, 0.42); // a sprint stance stays ≥ 6 frames at 60 fps: shorter and the knee has to bend and straighten in two
+  const travel = g.sf * len; g.Sf = 0.3 * travel; g.Sb = 0.7 * travel;
+  // the heel rises through the back half of stance at least as far as the leg needs to keep the toe on the ground
+  // at the end of the stride (a straight leg from a pelvis ~6 cm down cannot reach a foot Sb behind at ankle height)
+  g.lift = Math.max(clampN(0.1 + 0.02 * (mps - 5.8), 0.06, 0.16), reachLift(g.Sb, 0.06)); g.toe = Math.min(1.0, 4 * g.lift);
   g.H = clampN(0.15 + 0.05 * (mps - 5.8), 0.08, 0.32);
   g.mid = g.land + Math.PI * g.sf;
   return g;
@@ -407,7 +453,7 @@ function WALK_G(mps) {
   const g = _wg, len = walkCycleLen(mps);
   g.sf = 0.55;
   const travel = g.sf * len; g.Sf = 0.33 * travel; g.Sb = 0.67 * travel;
-  g.lift = 0.12; g.toe = 0.45; g.H = 0.08 + 0.02 * mps;
+  g.lift = Math.max(0.12, reachLift(g.Sb, 0.04)); g.toe = Math.min(1.0, 4 * g.lift); g.H = 0.08 + 0.02 * mps;
   g.mid = g.land + Math.PI * g.sf;
   return g;
 }
@@ -418,15 +464,24 @@ function WALK_G(mps) {
  */
 function gaitFoot(g, p, out) {
   const q = ((p - g.land) % TAU + TAU) % TAU, st = TAU * g.sf, D = g.Sf + g.Sb;
-  if (q < st) { // stance: heel strike, back under the body at ground speed, heel rising onto the toe through the last 40 %
-    const u = q / st, k = sm((u - 0.6) / 0.4);
+  if (q < st) { // stance: heel strike, back under the body at ground speed, heel rising onto the toe through the last 45 % (still rising at toe-off)
+    const u = q / st, hk = Math.max(0, (u - 0.55) / 0.45), k = hk * hk;
     out.z = g.Sf - u * D; out.y = ANKLE_H + g.lift * k;
-    out.toe = g.toe * k - 0.25 * (1 - sm(u / 0.12)); out.plant = 1 - sm((u - 0.5) / 0.5); out.flat = 1;
+    out.toe = g.toe * sm(hk) - 0.25 * (1 - sm(u / 0.35)); out.plant = 1 - sm((u - 0.5) / 0.5); out.flat = 1;
   } else { // swing: an eased sweep forward, plus a heel kick that carries on backward off the toe and a paw back into the landing (each an end tangent that dies quickly)
-    const u = (q - st) / (TAU - st), r = 1 - u;
-    const m = Math.min(1.2 * D, 0.6 * D * (TAU - st) / st); // ~ the stance foot's speed over the hip in swing-u units, capped for a sprint's short stance
-    out.z = -g.Sb + D * sm(u) - 0.8 * m * u * Math.pow(r, 6) - m * Math.pow(u, 6) * r;
-    out.y = ANKLE_H + g.lift * (1 - sm(u / 0.5)) + g.H * Math.sin(Math.PI * Math.pow(u, 0.7)); // peaks early, comes down steeply
+    const u = (q - st) / (TAU - st), r = 1 - u, r2 = r * r, r4 = r2 * r2;
+    // the stance foot's speed over the hip in swing-u units: the kick leaves the ground at exactly that speed and the
+    // paw arrives at it (the foot overshoots the landing spot a little and comes back), so neither end of the swing
+    // is a velocity step — the knee used to zigzag a frame at each
+    const m = D * (TAU - st) / st;
+    out.z = -g.Sb + D * sm(u) - m * u * r4 * r2 * r + m * Math.pow(u, 8) * r;
+    // the heel keeps rising at the stance's rate off the toe, the swing arc peaks early (35 %) and comes down steeply
+    const vy = (2 / 0.45) * g.lift * st / (TAU - st);
+    let y = ANKLE_H + g.lift * (1 - sm(u / 0.5)) + vy * u * r4 + g.H * sm(u / 0.35) * (1 - sm((u - 0.35) / 0.65));
+    // heel toward the seat: through the first 80 % of the swing the ankle rides at least as high as a bent knee needs
+    // for where the foot is (the kick carries it beyond a straight leg's reach), released for the landing reach
+    const yr = HIP_H - g.sink - Math.sqrt(Math.max(0, REACH_BENT * REACH_BENT - out.z * out.z)), w = sm((u - 0.8) / 0.2);
+    out.y = y + (1 - w) * (smax(y, yr, 0.03) - y);
     out.toe = g.toe * (1 - sm(u / 0.4)) - 0.25 * sm((u - 0.2) / 0.5);
     out.plant = sm((u - 0.7) / 0.3); out.flat = 1 - sm(u / 0.3) + out.plant; // the pelvis settles for the landing through the last third
   }
@@ -444,8 +499,12 @@ function reachHips(leg) {
   return leg.y + Math.sqrt(r * r - dz * dz) - HIP_H + 0.1 * (1 - leg.plant);
 }
 /** 2-bone leg IK: ankle target (dz ahead, dy up — negative) relative to the hip joint → hip / knee pitch. */
+/** Reach soft-limit: the hip-to-ankle distance saturates smoothly at 98.5 % of the leg from 6 % short of it, so the
+ *  knee eases toward straight instead of pinning at its floor (the knee angle is hypersensitive to distance near full
+ *  extension — a target passing through full reach at speed used to bend the knee 0.4 rad in a single frame). */
+const softReach = (d) => (d > REACH_MAX - REACH_SOFT ? REACH_MAX - REACH_SOFT + REACH_SOFT * Math.tanh((d - (REACH_MAX - REACH_SOFT)) / REACH_SOFT) : d);
 function legIK(dz, dy, out) {
-  let d = Math.hypot(dz, dy); if (d > LEG * 0.995) d = LEG * 0.995; if (d < 0.05) d = 0.05;
+  let d = softReach(Math.hypot(dz, dy)); if (d < 0.05) d = 0.05;
   const alpha = Math.acos(clampN((L1 * L1 + L2 * L2 - d * d) / (2 * L1 * L2), -1, 1)); // interior knee angle
   const beta = Math.acos(clampN((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d), -1, 1));   // thigh vs hip->foot line
   out.hip = Math.atan2(-dz, -dy) - beta; out.knee = Math.PI - alpha;
@@ -624,9 +683,14 @@ export const HUMANOID_CLIPS = {
    */
   run(t, P, ctx) {
     const sp = clamp01(ctx.speed), mps = speedToMps(sp, ctx.mps);
+    // the walk / run *pose* mix follows a smoothed speed (τ 0.2 s): the body accelerates 0 → 6 m/s in 0.2 s, and
+    // the arm pump / lean flipping from the walk to the run pose over the 2 frames the speed crosses the mix band
+    // was a pop; cadence and stride keep following the true speed so the feet never slide
+    const dtc = ctx.gaitT === undefined || t < ctx.gaitT ? -1 : t - ctx.gaitT;
+    const mixMps = ctx.mixMps = dtc < 0 || ctx.mixMps === undefined ? mps : ctx.mixMps + (mps - ctx.mixMps) * (1 - Math.exp(-dtc / 0.2));
     const ph = gaitPhase(t, ctx, runCadence(sp, ctx.mps));
     const s = Math.sin(ph), c = Math.cos(ph);
-    const w = gaitMix(mps), v = 1 - w, slope = ctx.slope || 0;
+    const w = gaitMix(mps), v = 1 - w, wu = gaitMix(mixMps), vu = 1 - wu, slope = ctx.slope || 0; // legs / pelvis on the true speed, upper body on the smoothed
     const down = Math.max(0, -slope), up = Math.max(0, slope);
     const lean = 0.2 + 0.16 * sp, arm = 1 + sp * 0.35;
     // gait geometry for this speed (run / walk), see runCycleLen / walkCycleLen for the cadence side
@@ -661,24 +725,29 @@ export const HUMANOID_CLIPS = {
     // ---- run upper body (weight w): free (left) arm pumps with a folded elbow; the weapon (right) arm swings less
     // with the forearm carried level so the blade rides forward-and-up, clear of the ground and the legs
     const G = (k, name, rx, ry, rz) => { if (k > 0.001) P.add(name, rx * k, ry * k, rz * k); };
-    G(w, 'shoulderL', -0.4 + 0.75 * arm * s, 0.14, 0.28 + 0.1 * Math.max(0, -s));
-    G(w, 'elbowL', -1.1 - 0.5 * arm * Math.max(0, -s), 0, 0);
-    const shR = -0.35 - 0.25 * arm * s, elR = -0.6 - 0.25 * Math.max(0, s);
+    const pos = (x) => 0.5 * (Math.sqrt(x * x + 0.09) + x); // smooth max(0, x): the arm pump's half-wave had a velocity kink each cycle
+    G(wu, 'shoulderL', -0.4 + 0.75 * arm * s, 0.14, 0.28 + 0.1 * pos(-s));
+    G(wu, 'elbowL', -1.1 - 0.5 * arm * pos(-s), 0, 0);
+    const shR = -0.35 - 0.25 * arm * s, elR = -0.6 - 0.25 * pos(s);
     // net hand pitch in the chest frame; the spine + chest + pivot lean (~0.6 rad at a sprint) pitches it back to
     // ~20° above horizontal in world space, tip ahead at shoulder height
     const wantBlade = -2.2 + 0.1 * s;
-    G(w, 'shoulderR', shR, -0.18, -0.3); G(w, 'elbowR', elR, 0, 0);
-    G(w, 'wristR', Math.min(0.9, Math.max(-1.0, wantBlade - (shR + elR))), 0, 0);
+    G(wu, 'shoulderR', shR, -0.18, -0.3); G(wu, 'elbowR', elR, 0, 0);
+    G(wu, 'wristR', Math.min(0.9, Math.max(-1.0, wantBlade - (shR + elR))), 0, 0);
     // lean lives mostly in the spine (legs stay under the body); the chest counter-rotates the pelvis, the head stays level
-    G(w, 'hips', 0, yaw, roll); G(w, 'spine', lean * 0.75, -0.1 * s, -0.04 * s); G(w, 'chest', lean * 0.55, -0.12 * s, 0);
-    G(w, 'neck', -lean * 0.4, 0.05 * s, 0); G(w, 'head', -lean * 0.6, 0.07 * s, -0.02 * c);
+    G(wu, 'hips', 0, yaw, roll); G(wu, 'spine', lean * 0.75, -0.1 * s, -0.04 * s); G(wu, 'chest', lean * 0.55, -0.12 * s, 0);
+    G(wu, 'neck', -lean * 0.4, 0.05 * s, 0); G(wu, 'head', -lean * 0.6, 0.07 * s, -0.02 * c);
     // ---- walk upper body (weight 1 - w): upright, easy arm swing, the sword carried low as in idle
-    G(v, 'shoulderL', -0.1 + 0.35 * s, 0.05, 0.18); G(v, 'elbowL', -0.35 - 0.2 * Math.max(0, -s), 0, 0);
-    G(v, 'shoulderR', -0.15 - 0.2 * s, 0, -0.16); G(v, 'elbowR', -0.7, 0, 0); G(v, 'wristR', -0.1, 0, 0);
-    G(v, 'hips', 0, yaw, roll); G(v, 'spine', 0.04, -0.06 * s, -0.02 * s); G(v, 'chest', 0.02, -0.08 * s, 0);
-    G(v, 'head', 0.03, 0.04 * s, 0);
+    G(vu, 'shoulderL', -0.1 + 0.35 * s, 0.05, 0.18); G(vu, 'elbowL', -0.35 - 0.2 * pos(-s), 0, 0);
+    G(vu, 'shoulderR', -0.15 - 0.2 * s, 0, -0.16); G(vu, 'elbowR', -0.7, 0, 0); G(vu, 'wristR', -0.1, 0, 0);
+    G(vu, 'hips', 0, yaw, roll); G(vu, 'spine', 0.04, -0.06 * s, -0.02 * s); G(vu, 'chest', 0.02, -0.08 * s, 0);
+    G(vu, 'head', 0.03, 0.04 * s, 0);
     // ---- terrain: the spine leans into a climb and sits back on a descent, the head stays level
     P.add('spine', 0.25 * tilt, 0, 0); P.add('head', -0.3 * tilt, 0, 0);
+    // ---- turning (ctx.turn: smoothed yaw rate, + = left, ±1 ≈ a hard turn): the body banks into the turn, the
+    // hips lead it and the head looks through it
+    const turn = ctx.turn || 0, bank = turn * (0.4 + 0.6 * w) * (0.6 + 0.4 * sp);
+    P.addExtra(E_ROLL, -0.14 * bank); P.add('spine', 0, 0.12 * bank, -0.06 * bank); P.add('head', 0, 0.15 * bank, 0.04 * bank);
     P.extra(E_HIPSY, hipsY);
     P.extra(E_PITCH, pitch);
   },

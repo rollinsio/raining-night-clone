@@ -14,7 +14,7 @@
  *                                          motion outside the active window, clipping, trail coverage)
  *
  * Usage: node tools/motion.mjs <action> [--views side,front,rear,top] [--step 2] [--dur 1.4] [--nf Wylder] [--name x]
- *   action: light1 | light2 | light3 | heavy | combo (light x3) | skill | roll | run (sprint) | walk (5.8 m/s jog) | stroll (walk gait) | hit | stagger
+ *   action: light1 | light2 | light3 | heavy | combo (light x3) | chain (sprint -> light x3 -> idle) | skill | roll | rollout (roll -> idle) | jump | turn (sprint -> hard left) | run (sprint) | walk (5.8 m/s jog) | stroll (walk gait) | hit | stagger
  *           soldier:light | soldier:heavy | soldier:hit | soldier:stagger | knight:light | knight:heavy | wolf:light
  *   --from front|back|left|right   where a hit / stagger lands from (default front)
  * Requires the dev server on :5173 (npx vite --port 5173).
@@ -35,7 +35,7 @@ const action = argv.find((a) => !a.startsWith('--')) || 'light1';
 const opt = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 && argv[i + 1] !== undefined ? argv[i + 1] : d; };
 const VIEWS = opt('views', 'side,front,top').split(',');
 const STEP = +opt('step', 2);            // sim frames (1/60 s) per captured frame
-const DUR = +opt('dur', action === 'combo' ? 2.0 : action === 'run' || action === 'walk' || action === 'stroll' ? 1.2 : action.includes('hit') ? 1.0 : action.includes('stagger') ? 1.4 : 1.4);
+const DUR = +opt('dur', action === 'combo' ? 2.0 : action === 'chain' ? 2.6 : action === 'rollout' ? 1.0 : action === 'jump' ? 1.4 : action === 'turn' ? 1.3 : action === 'run' || action === 'walk' || action === 'stroll' ? 1.2 : action.includes('hit') ? 1.0 : action.includes('stagger') ? 1.4 : 1.4);
 const NF = opt('nf', 'Wylder');
 const FROM = opt('from', 'front');
 const NAME = opt('name', action.replace(':', '_') + (action.includes('hit') || action.includes('stagger') ? '_' + FROM : ''));
@@ -141,7 +141,9 @@ await page.evaluate(() => {
         return;
       }
       if (s === g.player) {
-        if (action === 'roll') { s.buffer('roll'); return; }
+        if (action === 'roll' || action === 'rollout') { s.buffer('roll'); return; }
+        if (action === 'chain' || action === 'turn') { return; } // sprint from the keyboard, then the step() driver presses light at 0.45 s / turns left
+        if (action === 'jump') { s.buffer('jump'); return; }
         if (action === 'run' || action === 'walk') { return; } // driven by keyboard input from the node side
         if (action === 'stroll') { g.input.touchAxis.y = 0.38; return; } // a third of the stick: ~2.2 m/s, the walk gait
         if (action === 'skill') { s.buffer('skill'); return; }
@@ -155,7 +157,8 @@ await page.evaluate(() => {
     step(n, action, t) {
       const s = st.subject, p = g.player;
       for (let i = 0; i < n; i++) {
-        if (s === p && action === 'combo' && p.state === 'attack' && p.attack.phase === 'recover' && !p.bufferAction) p.buffer('light');
+        if (s === p && (action === 'combo' || action === 'chain') && p.state === 'attack' && p.attack.phase === 'recover' && !p.bufferAction && p.comboIndex < 2) p.buffer('light');
+        if (s === p && action === 'chain' && !st.chained && t >= 0.45) { st.chained = true; p.buffer('light'); }
         g.update(1 / 60);
         if (st.reaction && s.state !== 'hit' && s.state !== 'stagger') s.frozen = true;
       }
@@ -199,6 +202,8 @@ await page.evaluate(() => {
       }
       if (s.attack && s.attack.hitSet) out.hits = s.attack.hitSet.size;
       const trail = s._trail && s._trail.owner === s ? s._trail : null; out.trailSamples = trail ? trail.count : 0;
+      out.pose = Array.from(s.anim.cur, (x) => +x.toFixed(4)); // every animator channel: continuity is judged from these
+      out.chan = s.anim.bones.map((b) => b.name);
       return out;
     },
     setView(off, lookUp) { this._off = off; this._lookUp = lookUp; this.camera(off, lookUp); },
@@ -221,7 +226,7 @@ await page.evaluate(() => {
     },
     bladeSpan(v) { window.__motionSpan = v; },
     restore() { g.input.touchAxis.y = 0; if (st.camUpdate) { g.cameraCtl.update = st.camUpdate; st.camUpdate = null; } g.hud.setVisible(st.hudVis); st.origin = null; },
-    resetOrigin() { st.origin = null; st.prevTip = null; st.prevDir = null; },
+    resetOrigin() { st.origin = null; st.prevTip = null; st.prevDir = null; st.chained = false; },
   };
 });
 
@@ -242,11 +247,13 @@ for (const view of VIEWS) {
   await page.evaluate(() => window.__motion.resetOrigin());
   const reaction = sub === 'hit' || sub === 'stagger';
   if (!reaction) await page.evaluate(([a, f]) => window.__motion.start(a, f), [sub, FROM]);
-  if (sub === 'run') await page.keyboard.down('ShiftLeft');
-  if (sub === 'run' || sub === 'walk') await page.keyboard.down('KeyW'); // real input: W is camera-relative forward (+Z here)
+  if (sub === 'run' || sub === 'chain' || sub === 'turn') await page.keyboard.down('ShiftLeft');
+  if (sub === 'run' || sub === 'walk' || sub === 'chain' || sub === 'turn') await page.keyboard.down('KeyW'); // real input: W is camera-relative forward (+Z here)
   const list = [];
   for (let i = 0; i < nFrames; i++) {
     const t = +(((i + 1) * STEP) / 60).toFixed(3);
+    if (sub === 'chain' && t >= 0.45 && t - STEP / 60 < 0.45) { await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft'); } // the attack comes out of a sprint
+    if (sub === 'turn' && t >= 0.5 && t - STEP / 60 < 0.5) { await page.keyboard.up('KeyW'); await page.keyboard.down('KeyA'); } // hard left out of a sprint
     const trace = await page.evaluate(([n, a, tt]) => window.__motion.step(n, a, tt), [STEP, sub, t]);
     const file = path.join(OUT, `${view}_${String(i).padStart(3, '0')}.png`), mask = file.replace('.png', '_m.png');
     await page.screenshot({ path: file });
@@ -257,7 +264,7 @@ for (const view of VIEWS) {
     if (reaction && i === 0) await page.evaluate(([a, f]) => window.__motion.start(a, f), [sub, FROM]); // frame 0 is the rest pose
   }
   frames[view] = list;
-  if (sub === 'run' || sub === 'walk') { await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft'); }
+  if (sub === 'run' || sub === 'walk' || sub === 'turn') { await page.keyboard.up('KeyW'); await page.keyboard.up('KeyA'); await page.keyboard.up('ShiftLeft'); }
   if (sub === 'stroll') await page.evaluate(() => { window.__game.game.input.touchAxis.y = 0; });
 }
 await page.evaluate(() => window.__motion.restore());
@@ -336,6 +343,42 @@ if (withTip.length && swing.length) {
     checks.push({ ok: lift >= 0.12, name: 'feet lift clear of the ground', detail: `max ankle height ${lift.toFixed(2)} m` });
   }
 }
+// pose continuity (every capture): per animator channel, the change per 1/60 s frame and the change of that change.
+// A clip switch that snaps shows as a channel jumping far in one frame with a matching jerk; a swing's own peak is
+// large too but builds over frames. Blows and hit-stop are allowed to snap (reactions), everything else is judged.
+{
+  const P = trace.filter((f) => f.pose), chan = P[0] && P[0].chan;
+  if (P.length > 2) {
+    const n = P[0].pose.length, nb = chan.length, label = (c) => (c < nb * 3 ? `${chan[(c / 3) | 0]}.${'xyz'[c % 3]}` : c < nb * 3 + 4 ? ['hipsY', 'pitch', 'roll', 'yaw'][c - nb * 3] : `${chan[c - nb * 3 - 4]}.twist`);
+    const worst = { step: 0, t: 0, c: 0 }; let sumJerk = 0, count = 0; const perFrame = [];
+    const isReaction = (f) => f.state === 'hit' || f.clip === 'hit' || f.clip === 'stagger' || f.clip === 'recoil';
+    for (let i = 2; i < P.length; i++) {
+      if (isReaction(P[i]) || isReaction(P[i - 1])) continue;
+      let fj = 0, fc = 0;
+      for (let c = 0; c < n; c++) {
+        const wrap = (x) => Math.atan2(Math.sin(x), Math.cos(x)); // whole-body pitch wraps after a roll
+        const d1 = wrap(P[i].pose[c] - P[i - 1].pose[c]) / STEP, d0 = wrap(P[i - 1].pose[c] - P[i - 2].pose[c]) / STEP, j = Math.abs(d1 - d0);
+        if (Math.abs(d1) > worst.step) { worst.step = Math.abs(d1); worst.t = P[i].t; worst.c = c; }
+        if (j > fj) { fj = j; fc = c; }
+        sumJerk += j; count++;
+      }
+      perFrame.push({ t: P[i].t, j: fj, c: fc, clip: P[i].clip, phase: P[i].phase });
+    }
+    // a switch = the frames within 0.12 s after the animator's clip name (or the attack phase's windup) changes
+    let lastSwitch = -9, prevClip = P[0].clip, prevPhase = P[0].phase;
+    for (const f of P) { if (f.clip !== prevClip || (f.phase === 'windup' && prevPhase !== 'windup')) lastSwitch = f.t; prevClip = f.clip; prevPhase = f.phase; f.sw = f.t - lastSwitch <= 0.12; }
+    for (const e of perFrame) e.sw = !!P.find((f) => f.t === e.t)?.sw;
+    const top = [...perFrame].sort((a, b) => b.j - a.j).slice(0, 5);
+    const sw = perFrame.filter((e) => e.sw).sort((a, b) => b.j - a.j), steady = perFrame.filter((e) => !e.sw).sort((a, b) => b.j - a.j);
+    const fmt = (e) => `${e.j.toFixed(3)}@${e.t} ${label(e.c)} ${e.clip}/${e.phase}`;
+    // switches must not pop (the blend is judged); a clip's own motion is reported for reference (a sprint's stance at 60 fps sits ~0.4)
+    checks.push({ ok: !sw.length || sw[0].j <= 0.32, name: 'pose continuity at clip switches (no pops)', detail: sw.length ? `largest per-frame change of change within 0.12 s of a switch ${fmt(sw[0])}; next: ${sw.slice(1, 4).map(fmt).join(', ')}` : 'no clip switches in this capture' });
+    checks.push({ ok: true, name: 'pose motion within clips (reference)', detail: `largest ${steady.length ? fmt(steady[0]) : '-'}; fastest channel ${worst.step.toFixed(3)} rad/frame at t=${worst.t} (${label(worst.c)}); mean jerk ${(sumJerk / Math.max(1, count)).toFixed(4)}; top overall: ${top.map(fmt).join(', ')}` });
+    for (const f of trace) f.jerk = perFrame.find((e) => e.t === f.t)?.j;
+  }
+  for (const f of trace) delete f.chan;
+  fs.writeFileSync(path.join(OUT, 'trace.json'), JSON.stringify({ action, subject: info, step: STEP, frames: trace }, null, 1));
+}
 const phases = [];
 for (const f of trace) { const p = f.phase + (f.state === 'roll' ? '/roll' : ''); if (!phases.length || phases[phases.length - 1].p !== p) phases.push({ p, t0: f.t, t1: f.t }); else phases[phases.length - 1].t1 = f.t; }
 
@@ -385,7 +428,7 @@ for (const view of VIEWS) {
   const cols = Math.min(6, list.length), tw = 400, th = 300, rows = Math.ceil(list.length / cols);
   await renderCanvas(cols * tw, rows * (th + 16) + 28, SHEET_FN, { urls: list.map((f) => toDataUrl(f.file)), traces, cols, tw, th, title: `${action} — ${view} — ${info.name}/${info.weapon} — ${60 / STEP} fps` }, path.join(OUT, `sheet_${view}.png`));
   // onion: every frame while a swing is live, every other frame otherwise, capped at 24 layers
-  const live = list.map((f, i) => ({ f, i })).filter(({ f }) => f.trace.phase !== 'none' || action === 'roll' || action === 'run' || action === 'walk' || action === 'stroll');
+  const live = list.map((f, i) => ({ f, i })).filter(({ f }) => f.trace.phase !== 'none' || action === 'roll' || action === 'rollout' || action === 'chain' || action === 'jump' || action === 'turn' || action === 'run' || action === 'walk' || action === 'stroll');
   const pick = (live.length ? live : list.map((f, i) => ({ f, i }))).filter((_, k, arr) => k % Math.max(1, Math.ceil(arr.length / 24)) === 0);
   await renderCanvas(W, H, ONION_FN, { urls: [...pick.map(({ f }) => toDataUrl(f.file)), ...pick.map(({ f }) => toDataUrl(f.mask))], traces: pick.map(({ f }) => f.trace), title: `${action} — ${view}` }, path.join(OUT, `onion_${view}.png`));
   // gif

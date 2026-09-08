@@ -3,6 +3,37 @@
 One line per module: what exists, and any known stubs. Folder ownership per ARCHITECTURE.md; the
 skeleton build touched every folder once — later builders own their folders from here.
 
+## Animation: inertialized clip switches, a gait that fits the leg, turn bank, landing absorb (2026-09-08)
+
+Every clip switch used to be a 30–70 ms crossfade into the new clip's first frame (and for the idle-style
+clips a low-pass that smeared everything), so combos detoured through the ready pose, a run stopped with a
+flick to rest, and the sprint's knee snapped straight twice a stride. Measured with the motion tool's new
+continuity check: sprint → swing pop 0.44 → 0.20 rad/frame², light2 → light3 0.35 → 0.16, roll → idle 0.38 → 0.05.
+
+- `entity/Humanoid.js` — `Animator` no longer crossfades or low-passes: a clip plays exactly, and a switch keeps
+  the pose *and velocity* it interrupts by carrying the difference to the new clip as an offset that a quintic
+  (Bonsall inertialization: position, velocity and acceleration continuous at both ends) brings to zero over
+  `blend` seconds (default 0.16; `rate` maps onto the same). `sample(t)` evaluates a clip without playing it;
+  `layer` is an additive hook over any clip. Run gait: `legIK` saturates the reach smoothly instead of pinning the
+  knee at its floor (the knee bent 0.4 rad in one frame whenever the foot target came back in range — it was out
+  of range for half the cycle); the push-off heel lift is derived from what the leg can reach (`reachLift`), the
+  swing keeps the heel high enough for a bent knee (`REACH_BENT`, `smax`), the kick off the toe and the paw into
+  the landing match the stance speed (the paw's sign was inverted: the foot moved *forward* at heel strike), the
+  swing arc has finite slope at toe-off, the sprint stance stays ≥ 24 % of the cycle, the arm pump's half-wave
+  is a smooth rectifier, and the walk / run upper-body mix follows a τ 0.2 s speed so a 0.3 s sprint start does
+  not flip the arms in two frames (legs stay on the true speed: no slide). `ctx.turn` banks the body into a turn.
+  `E_HIPSY` … are exported.
+- `entity/Player.js` — attacks blend over their windup (`0.9 × windup`, 0.08–0.3 s) so a chained swing goes
+  straight from its follow-through into the next chamber; the run's `ctx` is written *before* `play()` (play
+  samples the clip); yaw rate → `ctx.turn`; a landing absorb layer (knees give, hips sink, ~0.26 s, harder after
+  a longer fall) after every jump.
+- `entity/Enemy.js` — same windup blend and `ctx`-before-`play` for the run.
+- `tools/motion.mjs` — records every animator channel per frame; `pose continuity at clip switches` check (change
+  of per-frame change within 0.12 s of a switch, ≤ 0.32) and a within-clip reference line; new actions `chain`
+  (sprint → light ×3), `rollout` (roll → idle), `jump`, `turn` (sprint → hard left, use `--views rear`).
+  Known: the sprint's own stance at 60 fps sits at ~0.4 (six-frame stance); the greatsword light3 tip still dips
+  6 cm into the ground on one frame (pre-existing).
+
 ## Touch: tap-to-attack look pad, menu buttons that stay open, a real overhead heavy (2026-09-08)
 
 - `core/Touch.js` — the look pad attacks: a quick tap is a light (fires on the first tap, no wait), a second tap
