@@ -107,7 +107,8 @@ export class Player extends Entity {
   chest() { return _chest.set(this.pos.x, this.pos.y + 1.3, this.pos.z); }
 
   setState(s) { this.state = s; this.stateT = 0; }
-  buffer(a) { this.bufferAction = a; this.bufferT = 0.3; }
+  /** A heavy asked for during a light gets a longer window: it's the combo finisher, taken after the light lands. */
+  buffer(a) { this.bufferAction = a; this.bufferT = a === 'heavy' && this.state === 'attack' && !this.attack.heavy ? 0.6 : 0.3; }
   takeBuffer(a) { if (this.bufferAction === a) { this.bufferAction = null; return true; } return false; }
 
   update(dt) {
@@ -306,6 +307,8 @@ export class Player extends Entity {
     const tw = def.windup, ta = tw + def.active, tr = ta + def.recover;
     if (a.t < tw) {
       a.phase = 'windup'; this.decel(dt);
+      // a heavy asked for while a light is still winding up replaces it (touch: a quick double tap is a heavy)
+      if (!a.heavy && this.bufferAction === 'heavy' && this.stamina > 0) { this.takeBuffer('heavy'); this.startAttack(this.moveset.heavy, true, move, len); return; }
       if (this.lockTarget) this.faceToward(this.lockTarget.pos.x, this.lockTarget.pos.z, dt, 7);
     } else if (a.t < ta) {
       if (a.phase !== 'active') this.game.cameraCtl.addLunge(a.heavy ? 0.22 : 0.12); // first active frame
