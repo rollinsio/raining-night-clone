@@ -6,7 +6,7 @@
  */
 import * as THREE from 'three';
 import { Entity } from './Entity.js';
-import { setHitCtx } from './Humanoid.js';
+import { setHitCtx, E_HIPSY } from './Humanoid.js';
 import { createNightfarerRig, signatureVisual } from '../nightfarers/Rig.js';
 import { Inventory } from './Inventory.js';
 import { WEAPONS, MOVESETS, SKILLS, WEAPON_SKILLS } from '../combat/Weapons.js';
@@ -15,7 +15,7 @@ const _move = new THREE.Vector3(), _f = new THREE.Vector3(), _r = new THREE.Vect
 const FLASK_HEAL = 0.4;           // fraction of max HP restored per crimson flask
 const COMBAT_R = 45, COMBAT_LINGER = 4; // an aggro'd enemy this close, or a hit this recent, counts as combat
 const UP = new THREE.Vector3(0, 1, 0);
-const WALK = 5.8, SPRINT = 9.3, ROLL_DUR = 0.55, ROLL_SPEED = 8.6, DEG = Math.PI / 180;
+const WALK = 5.8, SPRINT = 9.3, ROLL_DUR = 0.55, ROLL_SPEED = 8.6, DEG = Math.PI / 180, LAND_DUR = 0.26;
 const JUMP_V = 8.2;               // upward impulse; apex = v^2 / 2g ~ 1.4 m, clears a church plinth (0.9 m)
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const sm = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
@@ -50,6 +50,18 @@ export class Player extends Entity {
     this.respawnPoint = new THREE.Vector3(); this.respawnName = 'Limveld';
     this.attack = { def: null, t: 0, phase: 'none', hitSet: new Set(), lastAngle: 0, heavy: false, reach: 0, fired: false };
     this.outsideRing = false;
+    // animation extras: smoothed yaw rate for the run's bank into turns, and a landing absorb (knees give and the
+    // hips sink for a quarter second after a jump) laid over whatever clip is playing
+    this.prevYaw = this.yaw; this.turnV = 0; this.landT = 0;
+    this.anim.layer = (P, dt) => {
+      if (this.landT <= 0) return;
+      this.landT -= dt;
+      const u = clamp(1 - this.landT / LAND_DUR, 0, 1), k = sm(u / 0.4) * (1 - sm((u - 0.4) / 0.6)) * this.landK; // knees give over ~100 ms, ease back
+      P.add('hipL', -0.42 * k, 0, 0); P.add('kneeL', 0.85 * k, 0, 0); P.add('ankleL', -0.43 * k, 0, 0);
+      P.add('hipR', -0.42 * k, 0, 0); P.add('kneeR', 0.85 * k, 0, 0); P.add('ankleR', -0.43 * k, 0, 0);
+      P.add('spine', 0.18 * k, 0, 0); P.add('head', -0.1 * k, 0, 0); P.add('shoulderL', -0.3 * k, 0, 0.1 * k); P.add('shoulderR', -0.3 * k, 0, -0.1 * k);
+      P.addExtra(E_HIPSY, -0.08 * k);
+    };
     const startId = WEAPONS[nf.weapon] ? nf.weapon : 'sword';
     this.inventory.add({ ...WEAPONS[startId], id: startId, rarity: 'common' });
     this.equipWeapon(this.inventory.equip(0), { quiet: true });
@@ -131,6 +143,10 @@ export class Player extends Entity {
     this.fp = Math.min(this.maxFp, this.fp + 0.7 * dt);
 
     for (const a of ['light', 'heavy', 'roll', 'jump', 'skill', 'ult', 'flask', 'swapWeapon']) if (input.wasPressed(a)) this.buffer(a);
+    // yaw rate (smoothed, τ 0.1 s) for the run's bank into a turn; ±1 is a hard 6 rad/s turn
+    const dy = Math.atan2(Math.sin(this.yaw - this.prevYaw), Math.cos(this.yaw - this.prevYaw)); this.prevYaw = this.yaw;
+    this.turnV += (clamp(dy / dt, -12, 12) - this.turnV) * (1 - Math.exp(-dt / 0.1));
+    anim.ctx.turn = clamp(this.turnV / 6, -1, 1);
     if (input.wasPressed('lockOn')) this.toggleLock();
     if (this.lockTarget && (!this.lockTarget.alive || this.distanceTo(this.lockTarget) > 42)) this.setLock(null);
 
@@ -178,7 +194,7 @@ export class Player extends Entity {
     // the gait follows the speed physics actually delivered (a climb slows the legs with the body; a wall stops
     // them) and plays exactly after a short crossfade so the stride is not smeared by the pose low-pass
     const moving = this.speed > 0.4 && (this.groundSpeed > 0.4 || !this.blocked);
-    if (moving) { anim.play('run', { blend: 0.12 }); anim.ctx.speed = clamp((this.speed - 3) / (SPRINT - 3), 0, 1); anim.ctx.mps = Math.max(0.6, this.groundSpeed); anim.ctx.slope = this.slope; this.state = 'move'; }
+    if (moving) { anim.ctx.speed = clamp((this.speed - 3) / (SPRINT - 3), 0, 1); anim.ctx.mps = Math.max(0.6, this.groundSpeed); anim.ctx.slope = this.slope; anim.play('run', { blend: 0.12 }); this.state = 'move'; } // ctx first: play() samples the clip
     else { anim.play('idle'); this.state = 'idle'; }
     // actions
     if (this.bufferAction === 'flask') { this.takeBuffer('flask'); this.drinkFlask(); return; }
@@ -259,6 +275,7 @@ export class Player extends Entity {
     this.anim.ctx.param = clamp(0.5 - this.vel.y / (2 * JUMP_V), 0, 1); // 0 rising -> 0.5 apex -> 1 falling
     if (this.onGround && this.stateT > 0.08) { // landed (applyPhysics grounded us last step)
       this.speed = Math.hypot(this.vel.x, this.vel.z);
+      this.landT = LAND_DUR; this.landK = clamp(0.5 + this.stateT * 0.6, 0.5, 1); // a longer fall lands harder
       this.setState('idle');
       this.anim.play(this.speed > 0.4 ? 'run' : 'idle', { blend: 0.1 });
     }
@@ -297,7 +314,9 @@ export class Player extends Entity {
     else if (def.ranged) { this.game.cameraCtl.cameraForward(_f); this.yaw = Math.atan2(_f.x, _f.z); } // unlocked shots go where the camera looks
     else if (move && len > 0.001) this.yaw = Math.atan2(move.x, move.z);
     const ctx = this.anim.ctx; ctx.windup = def.windup; ctx.active = def.active; ctx.recover = def.recover;
-    this.anim.play(def.clip, { restart: true, blend: 0.07 });
+    // the offset from whatever the body was doing dies out over the windup, so a chained swing goes straight from
+    // its follow-through into the next chamber and a swing out of a sprint keeps the stride's momentum
+    this.anim.play(def.clip, { restart: true, blend: Math.min(0.3, Math.max(0.08, def.windup * 0.9)) });
     if (def.burst) this.game.combat.burstFx(this);
   }
 
