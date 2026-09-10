@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PALETTE, charMats } from '../render/Style.js';
+import { weaponParts } from './WeaponGeo.js';
 
 const _c = new THREE.Color(), _c2 = new THREE.Color();
 const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _t1 = new THREE.Vector3(), _t2 = new THREE.Vector3(), _m = new THREE.Matrix4();
@@ -48,11 +49,14 @@ export class RigBuilder {
    * Add a model-space geometry bound to a bone. matIndex 0 = flat shaded, 1 = smooth.
    * o.blend {bone, y, width}: vertices below model-space y blend into the child bone (smooth joints).
    * o.skirt {L, R, top, bottom, max}: vertices follow the hip on their side, more toward the hem.
-   * o.shadeFn(x, y, z) -> per-vertex brightness multiplier (baked AO / gradients).
+   * o.shadeFn(x, y, z) -> per-vertex brightness multiplier (baked AO / gradients). A 'shade' attribute on the
+   * geometry (entity/WeaponGeo.js lofts) is a baked per-vertex multiplier too; it is consumed here.
    */
   part(geo, boneName, color, matIndex = 0, shade = 1, o = null) {
     if (geo.index) geo = geo.toNonIndexed();
     const pa = geo.attributes.position.array, n = geo.attributes.position.count, idx = this.byName[boneName].userData.index;
+    const sa = geo.attributes.shade ? geo.attributes.shade.array : null;
+    if (sa) geo.deleteAttribute('shade');
     const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4), col = new Float32Array(n * 3);
     _c.setHex(color).multiplyScalar(shade);
     const blendIdx = o && o.blend ? this.byName[o.blend.bone].userData.index : -1;
@@ -64,7 +68,7 @@ export class RigBuilder {
       if (blendIdx >= 0) { const b = o.blend; iB = blendIdx; wB = sm((b.y + b.width * 0.5 - y) / b.width); }
       else if (skL >= 0) { const s = o.skirt; iB = x >= 0 ? skL : skR; wB = s.max * sm((s.top - y) / (s.top - s.bottom)); }
       si[i * 4] = idx; si[i * 4 + 1] = iB; sw[i * 4] = 1 - wB; sw[i * 4 + 1] = wB;
-      const m = o && o.shadeFn ? o.shadeFn(x, y, z) : 1;
+      const m = (sa ? sa[i] : 1) * (o && o.shadeFn ? o.shadeFn(x, y, z) : 1);
       col[i * 3] = _c.r * m; col[i * 3 + 1] = _c.g * m; col[i * 3 + 2] = _c.b * m;
     }
     geo.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4));
@@ -1162,57 +1166,10 @@ class ContactShadows {
 }
 
 // -------------------------------------------------------------------------------------------------
-// Weapon visuals (hand-local frame: origin at the centre of the fist, blade along -Y tilted slightly forward;
-// the pommel pokes out just above the fist, the guard sits just below it)
+// Weapon visuals live in entity/WeaponGeo.js (lofted blades / axe bits with baked shading); re-exported for the
+// nightfarer rigs, which swap weapon meshes at runtime.
 
-export function weaponParts(visual) {
-  const parts = [];
-  const add = (geo, color, y, x = 0, z = 0) => { geo.translate(x, y, z); parts.push({ geo, color }); };
-  const S = PALETTE.steel, SD = PALETTE.steelDark, L = PALETTE.leather, G = PALETTE.gold;
-  switch (visual) {
-    case 'greatsword': {
-      const blade = new THREE.BoxGeometry(0.1, 1.3, 0.024, 1, 2, 1).toNonIndexed();
-      const p = blade.attributes.position; // fuller ridge + tapered point
-      for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y < -0.6) { p.setX(i, p.getX(i) * 0.25); } if (Math.abs(p.getX(i)) < 0.01 && Math.abs(y) < 0.01) p.setZ(i, p.getZ(i) * 1.8); }
-      blade.computeVertexNormals();
-      add(blade, S, -0.95); add(new THREE.BoxGeometry(0.34, 0.05, 0.07), SD, -0.28);
-      add(new THREE.CylinderGeometry(0.024, 0.028, 0.3, 6), L, -0.11);
-      add(new THREE.CylinderGeometry(0.03, 0.022, 0.028, 6), SD, 0.072); // faceted pommel cap (the gold ball read as a second hand)
-      break;
-    }
-    case 'sword': case 'katana':
-      add(new THREE.BoxGeometry(visual === 'katana' ? 0.04 : 0.055, 0.86, 0.014), S, -0.57); add(new THREE.BoxGeometry(visual === 'katana' ? 0.1 : 0.22, 0.035, 0.05), SD, -0.125);
-      add(new THREE.CylinderGeometry(0.02, 0.024, 0.17, 5), L, -0.03);
-      add(new THREE.CylinderGeometry(0.024, 0.018, 0.022, 6), SD, 0.068); // small faceted pommel cap (a bright gold ball read as a second hand)
-      break;
-    case 'halberd':
-      add(new THREE.CylinderGeometry(0.022, 0.022, 2.2, 5), PALETTE.woodDark, -0.55);
-      add(new THREE.BoxGeometry(0.32, 0.4, 0.02), S, -1.3, -0.14); add(new THREE.ConeGeometry(0.035, 0.35, 5), S, -1.82);
-      break;
-    case 'axe':
-      add(new THREE.CylinderGeometry(0.025, 0.028, 1.1, 5), PALETTE.woodDark, -0.35);
-      add(new THREE.BoxGeometry(0.3, 0.34, 0.03), S, -0.78, -0.14); add(new THREE.BoxGeometry(0.3, 0.34, 0.03), S, -0.78, 0.14);
-      break;
-    case 'dagger':
-      add(new THREE.BoxGeometry(0.04, 0.45, 0.012), S, -0.34); add(new THREE.BoxGeometry(0.12, 0.03, 0.04), SD, -0.1);
-      add(new THREE.CylinderGeometry(0.018, 0.02, 0.14, 5), L, -0.02); add(new THREE.SphereGeometry(0.022, 6, 4), G, 0.06);
-      break;
-    case 'staff': {
-      add(new THREE.CylinderGeometry(0.02, 0.026, 1.7, 5), PALETTE.woodDark, -0.45);
-      const orb = new THREE.SphereGeometry(0.07, 6, 5); add(orb, 0x8a6aff, 0.42);
-      break;
-    }
-    case 'bow': {
-      const a = new THREE.BoxGeometry(0.03, 0.7, 0.025); a.rotateX(-0.35); add(a, PALETTE.woodDark, -0.35, 0, 0.12);
-      const b = new THREE.BoxGeometry(0.03, 0.7, 0.025); b.rotateX(0.35); add(b, PALETTE.woodDark, 0.35, 0, 0.12);
-      add(new THREE.BoxGeometry(0.006, 1.3, 0.006), 0xd8d4c8, 0, 0, 0.0);
-      break;
-    }
-    default: break;
-  }
-  for (const p of parts) p.geo.rotateX(-0.35);
-  return parts;
-}
+export { weaponParts };
 
 function shieldParts() {
   const plate = new THREE.CylinderGeometry(0.3, 0.3, 0.035, 6);
@@ -1393,7 +1350,7 @@ export function createHumanoid(opts = {}) {
   }
   // --- weapon + shield bound to the hands ---
   const handR = p('wristR').clone().add(new THREE.Vector3(0, -0.05, 0.012));
-  for (const w of weaponParts(opts.weapon || 'sword')) rb.part(at(w.geo, handR.x, handR.y, handR.z), 'wristR', w.color, 0, w.color === PALETTE.steel ? 1.45 : 1.0);
+  for (const w of weaponParts(opts.weapon || 'sword')) rb.part(at(w.geo, handR.x, handR.y, handR.z), 'wristR', w.color, 0, w.shade);
   if (opts.shield) { const hl = p('wristL').clone().add(new THREE.Vector3(0, -0.05, 0.012)); for (const w of shieldParts()) rb.part(at(w.geo, hl.x, hl.y + 0.12, hl.z), 'wristL', w.color); }
 
   const materials = charMats();

@@ -205,20 +205,6 @@ function handFrame(parts, hand, tilt = -0.35) {
 }
 const W = (geo, color, y, x = 0, z = 0, shade = 1) => ({ geo: at(geo, x, y, z), color, shade });
 
-/** Raider's great axe: the head rides low by the hand (a heavy axe is carried choked up), the haft rises past the shoulder. */
-function greatAxe() {
-  const S = PALETTE.steel, SD = PALETTE.steelDark, WD = PALETTE.woodDark, L = PALETTE.leather;
-  const blade = [[0.06, 0.34], [0.38, 0.46], [0.52, 0.1], [0.52, -0.1], [0.38, -0.46], [0.06, -0.34]];
-  const mirror = blade.map(([x, y]) => [-x, y]).reverse();
-  return [
-    W(cyl(0.028, 0.034, 1.55, 7), WD, -0.2, 0, 0, 1.0),
-    W(cyl(0.036, 0.036, 0.26, 7), L, 0.02, 0, 0, 0.9),
-    W(scaled(prism(blade, 0.03), 1, 1, 1), S, -0.72, 0, 0, 1.45), W(prism(mirror, 0.03), S, -0.72, 0, 0, 1.45),
-    W(box(0.16, 0.2, 0.07), SD, -0.72, 0, 0, 1.0), W(cone(0.035, 0.22, 5), SD, -1.08, 0, 0, 1.0),
-    W(cyl(0.04, 0.04, 0.03, 7), SD, -0.5), W(cyl(0.04, 0.04, 0.03, 7), SD, -0.96),
-    W(sph(0.045, 6, 4), SD, 0.58),
-  ];
-}
 /** Ironeye's recurve bow (left hand, grip at the fist, limbs along ±Y, tips curling forward). */
 function bow() {
   const WD = mixc(PALETTE.woodDark, PALETTE.leather, 0.4), L = PALETTE.leather, STR = mixc(PALETTE.moon, PALETTE.stone, 0.4);
@@ -252,11 +238,6 @@ function lyre() {
   ];
   for (let i = 0; i < 5; i++) parts.push(W(box(0.004, 0.4, 0.004), STR, 0.25, -0.06 + i * 0.03, 0.01, 1.3));
   return parts;
-}
-/** Second dagger for the Duchess's left hand (mirror of the base dagger). */
-function dagger() {
-  const S = PALETTE.steel, SD = PALETTE.steelDark, L = PALETTE.leather, G = PALETTE.gold;
-  return [W(box(0.04, 0.45, 0.012), S, -0.34, 0, 0, 1.45), W(box(0.12, 0.03, 0.04), SD, -0.1), W(cyl(0.018, 0.02, 0.14, 5), L, -0.02), W(sph(0.022, 6, 4), G, 0.06)];
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -700,11 +681,11 @@ export function setRigWeapon(rig, visual, col) {
   const accent = (col && col.accent) || PALETTE.gold;
   const hr = ov.pos('wristR').clone().add(new THREE.Vector3(0, -0.05, 0.012));
   const hl = ov.pos('wristL').clone().add(new THREE.Vector3(0, -0.05, 0.012));
-  // base visuals shade exactly as createHumanoid bakes them (steel lifted, the rest plain)
-  const base = (v) => { for (const w of weaponParts(v)) rb.part(at(w.geo, hr.x, hr.y, hr.z), 'wristR', w.color, 0, w.color === PALETTE.steel ? 1.45 : 1.0); };
+  // base visuals shade exactly as createHumanoid bakes them (WeaponGeo parts carry their own lift)
+  const base = (v, hand = hr, bone = 'wristR') => { for (const w of weaponParts(v)) rb.part(at(w.geo, hand.x, hand.y, hand.z), bone, w.color, 0, w.shade); };
   const head = (geo, along) => { geo.rotateX(-0.35); geo.translate(hr.x, hr.y + along * Math.cos(0.35), hr.z - along * Math.sin(0.35)); return geo; };
   switch (visual) {
-    case 'greatAxe': for (const p of handFrame(greatAxe(), hr)) ov.F(p.geo, 'wristR', p.color, p.shade); break;
+    case 'greatAxe': base('greatAxe'); break;
     case 'spiritStaff':
       for (const p of handFrame(spiritStaff(), hr)) ov.F(p.geo, 'wristR', p.color, p.shade);
       ov.G(head(scaled(new THREE.OctahedronGeometry(0.04, 1), 0.9, 1.5, 0.9), 0.58), 'wristR', accent, 1.0); // caged spirit flame
@@ -714,7 +695,7 @@ export function setRigWeapon(rig, visual, col) {
       ov.G(head(scaled(new THREE.OctahedronGeometry(0.075, 0), 0.8, 1.25, 0.8), 0.42), 'wristR', accent, 1.0); // crystal over the orb
       break;
     case 'bow': for (const p of handFrame(bow(), hl, 0)) ov.F(p.geo, 'wristL', p.color, p.shade); break;
-    case 'dagger': base('dagger'); for (const p of handFrame(dagger(), hl)) ov.F(p.geo, 'wristL', p.color, p.shade); break;
+    case 'dagger': base('dagger'); base('dagger', hl, 'wristL'); break; // a pair
     default: base(visual); break;
   }
   rig.weaponMesh = ov.build();

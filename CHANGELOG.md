@@ -3,6 +3,27 @@
 One line per module: what exists, and any known stubs. Folder ownership per ARCHITECTURE.md; the
 skeleton build touched every folder once — later builders own their folders from here.
 
+## Weapons: lofted blades and axe bits instead of boxes (2026-09-08)
+
+Every weapon was a box (a 1.3 m plank for the greatsword, two rectangles for the axe) lit to pure white by a
+1.45 steel lift; the Raider's great axe was two flat plates over a metre wide. Now the weapons are lofted:
+
+- `entity/WeaponGeo.js` (new) — `loft()` (rings → indexed geometry, faces wound away from each ring pair's
+  centroid, caps fanned to the centroid) with a baked per-vertex `shade` attribute; `blade(profile)` is a diamond
+  section tapering to a point, split down the ridge so one face is lit and the other shadowed (crease smoothing
+  would otherwise average the ridge flat), `single` for the katana's one edge + spine, `curve` for its bend;
+  `axeBit()` is a lens-section crescent with horn, heel and beard whose bevel brightens to the edge; `crossguard()`
+  tapers and droops toward the blade; `grip()` alternates wrap bands. `weaponParts(visual)` builds greatsword,
+  sword, katana, dagger, halberd (bit + back hook + spear point + langets), axe (bearded one-hander with a hammer
+  poll) and the Raider's `greatAxe` (double crescent, socket, langets, top spike), staff (collar + three gold prongs
+  around the orb). Steel base lift 0.92 with shading 0.6–1.28 around it, so the bright face stays short of white.
+- `entity/Humanoid.js` — `RigBuilder.part` multiplies a geometry's `shade` attribute into the vertex colour
+  (and drops the attribute so parts merge); `weaponParts` is re-exported from WeaponGeo.
+- `nightfarers/Rig.js` — `greatAxe` / the Duchess's second dagger come from `weaponParts` (own `greatAxe()` and
+  `dagger()` removed); `setRigWeapon` takes the per-part lift from the part.
+- `entity/enemies/EnemyRig.js` — soldier sword, knight greatsword and spear use the same lofted blades, guards
+  and grips (fuller boxes gone).
+
 ## Animation: inertialized clip switches, a gait that fits the leg, turn bank, landing absorb (2026-09-08)
 
 Every clip switch used to be a 30–70 ms crossfade into the new clip's first frame (and for the idle-style
